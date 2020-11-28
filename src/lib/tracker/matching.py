@@ -36,16 +36,17 @@ def _indices_to_matches(cost_matrix, indices, thresh):
 
 def linear_assignment(cost_matrix, thresh):
     if cost_matrix.size == 0:
-        return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
-    matches, unmatched_a, unmatched_b = [], [], []
+        return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1])), []
+    matches, unmatched_a, unmatched_b, matches_dist = [], [], [], []
     cost, x, y = lap.lapjv(cost_matrix, extend_cost=True, cost_limit=thresh)
     for ix, mx in enumerate(x):
         if mx >= 0:
             matches.append([ix, mx])
+            matches_dist.append(cost_matrix[ix, mx])
     unmatched_a = np.where(x < 0)[0]
     unmatched_b = np.where(y < 0)[0]
     matches = np.asarray(matches)
-    return matches, unmatched_a, unmatched_b
+    return matches, unmatched_a, unmatched_b, matches_dist
 
 
 def ious(atlbrs, btlbrs):
@@ -95,7 +96,7 @@ def embedding_distance(tracks, detections, metric='cosine'):
     :param metric:
     :return: cost_matrix np.ndarray
     """
-
+    # NOTE:使用平滑后最后一帧特征进行匹配
     cost_matrix = np.zeros((len(tracks), len(detections)), dtype=np.float)
     if cost_matrix.size == 0:
         return cost_matrix
@@ -106,6 +107,21 @@ def embedding_distance(tracks, detections, metric='cosine'):
     cost_matrix = np.maximum(0.0, cdist(track_features, det_features, metric))  # Nomalized features
     return cost_matrix
 
+def history_embedding_distance(tracks, detections, metric='cosine'):
+    """
+    :param tracks: list[STrack]
+    :param detections: list[BaseTrack]
+    :param metric:
+    :return: cost_matrix np.ndarray
+    """
+    # NOTE:使用平滑后最后一帧特征进行匹配
+    cost_matrix = np.zeros((len(tracks), len(detections)), dtype=np.float)
+    if cost_matrix.size == 0:
+        return cost_matrix
+    for i, track in enumerate(tracks):
+        for j, det in enumerate(detections):
+            cost_matrix[i, j] = np.maximum(0.0, cdist(np.concatenate([track.features, np.expand_dims(track.smooth_feat, axis=0)], axis=0), np.expand_dims(det.curr_feat, axis=0), metric).min())
+    return cost_matrix
 
 def gate_cost_matrix(kf, cost_matrix, tracks, detections, only_position=False):
     if cost_matrix.size == 0:
@@ -132,3 +148,4 @@ def fuse_motion(kf, cost_matrix, tracks, detections, only_position=False, lambda
         cost_matrix[row, gating_distance > gating_threshold] = np.inf
         cost_matrix[row] = lambda_ * cost_matrix[row] + (1 - lambda_) * gating_distance
     return cost_matrix
+

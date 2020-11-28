@@ -1,0 +1,14 @@
+{
+    "root":"/media/data/DataSet/DETRAC_TRACK",
+    "train":
+    {
+        "detrac":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.train"
+    },
+    "test_emb":
+    {
+    },
+    "test":
+    {
+        "detrac":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.val"
+    }
+}

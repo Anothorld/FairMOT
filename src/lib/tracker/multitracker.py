@@ -12,7 +12,7 @@ from tracking_utils.kalman_filter import KalmanFilter
 from tracking_utils.log import logger
 from tracking_utils.utils import *
 from utils.post_process import ctdet_post_process
-
+from tracking_utils.soft_nms import soft_nms_pytorch
 from .basetrack import BaseTrack, TrackState
 
 
@@ -33,7 +33,7 @@ class STrack(BaseTrack):
         self.update_features(temp_feat)
         self.features = deque([], maxlen=buffer_size)
         self.alpha = 0.9
-
+    # TODO: 有没有更好的特征更新策略?
     def update_features(self, feat):
         feat /= np.linalg.norm(feat)
         self.curr_feat = feat
@@ -41,7 +41,7 @@ class STrack(BaseTrack):
             self.smooth_feat = feat
         else:
             self.smooth_feat = self.alpha * self.smooth_feat + (1 - self.alpha) * feat
-        self.features.append(feat)
+        self.features.append(self.smooth_feat)
         self.smooth_feat /= np.linalg.norm(self.smooth_feat)
 
     def predict(self):
@@ -176,6 +176,7 @@ class JDETracker(object):
         self.model = load_model(self.model, opt.load_model)
         self.model = self.model.to(opt.device)
         self.model.eval()
+        STrack.id_init()
 
         self.tracked_stracks = []  # type: list[STrack]
         self.lost_stracks = []  # type: list[STrack]
@@ -243,15 +244,23 @@ class JDETracker(object):
             id_feature = F.normalize(id_feature, dim=1)
 
             reg = output['reg'] if self.opt.reg_offset else None
-            dets, inds = mot_decode(hm, wh, reg=reg, cat_spec_wh=self.opt.cat_spec_wh, K=self.opt.K)
+            dets, inds = mot_decode(hm, wh, reg=reg, cat_spec_wh=self.opt.cat_spec_wh, thresh=self.opt.conf_thres, K=self.opt.K)
+            # index = soft_nms_pytorch(dets[0, :, :4], dets[0, :, 4], cuda=1)
+            # final_dets = torch.zeros_like(dets)
+            # final_dets[0, index, :] = dets[0, index, :]
+            # dets = final_dets
             id_feature = _tranpose_and_gather_feat(id_feature, inds)
             id_feature = id_feature.squeeze(0)
             id_feature = id_feature.cpu().numpy()
 
         dets = self.post_process(dets, meta)
+        # _, dets = soft_nms_pytorch(dets[1][:, :4], dets[1][:, 4])
         dets = self.merge_outputs([dets])[1]
 
         remain_inds = dets[:, 4] > self.opt.conf_thres
+        dets = dets[remain_inds]
+        id_feature = id_feature[remain_inds]
+        remain_inds = (dets[:, 2] - dets[:, 0]) * (dets[:, 3] - dets[:, 1]) > self.opt.min_box_area
         dets = dets[remain_inds]
         id_feature = id_feature[remain_inds]
 
@@ -289,16 +298,20 @@ class JDETracker(object):
         #for strack in strack_pool:
             #strack.predict()
         STrack.multi_predict(strack_pool)
-        dists = matching.embedding_distance(strack_pool, detections)
+        # dists = matching.embedding_distance(strack_pool, detections)
+        dists = matching.history_embedding_distance(strack_pool, detections)
         #dists = matching.gate_cost_matrix(self.kalman_filter, dists, strack_pool, detections)
         dists = matching.fuse_motion(self.kalman_filter, dists, strack_pool, detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.7)
+        matches, u_track, u_detection, matches_dist = matching.linear_assignment(dists, thresh=0.7)
 
-        for itracked, idet in matches:
+        for i, (itracked, idet) in enumerate(matches):
             track = strack_pool[itracked]
             det = detections[idet]
             if track.state == TrackState.Tracked:
-                track.update(detections[idet], self.frame_id)
+                if matches_dist[i] <= 0.2:
+                    track.update(detections[idet], self.frame_id, update_feature=True)
+                else:
+                    track.update(detections[idet], self.frame_id)
                 activated_starcks.append(track)
             else:
                 track.re_activate(det, self.frame_id, new_id=False)
@@ -308,13 +321,13 @@ class JDETracker(object):
         detections = [detections[i] for i in u_detection]
         r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
         dists = matching.iou_distance(r_tracked_stracks, detections)
-        matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5)
+        matches, u_track, u_detection, _ = matching.linear_assignment(dists, thresh=0.2)
 
         for itracked, idet in matches:
             track = r_tracked_stracks[itracked]
             det = detections[idet]
             if track.state == TrackState.Tracked:
-                track.update(det, self.frame_id)
+                track.update(det, self.frame_id, update_feature=False)
                 activated_starcks.append(track)
             else:
                 track.re_activate(det, self.frame_id, new_id=False)
@@ -329,7 +342,7 @@ class JDETracker(object):
         '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
         detections = [detections[i] for i in u_detection]
         dists = matching.iou_distance(unconfirmed, detections)
-        matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=0.7)
+        matches, u_unconfirmed, u_detection, _ = matching.linear_assignment(dists, thresh=0.7)
         for itracked, idet in matches:
             unconfirmed[itracked].update(detections[idet], self.frame_id)
             activated_starcks.append(unconfirmed[itracked])

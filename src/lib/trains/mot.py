@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from models.decode import mot_decode
-from models.losses import FocalLoss
+from models.losses import FocalLoss, TripletLoss
 from models.losses import RegL1Loss, RegLoss, NormRegL1Loss, RegWeightedL1Loss
 from models.utils import _sigmoid, _tranpose_and_gather_feat
 from utils.post_process import ctdet_post_process
@@ -30,7 +30,7 @@ class MotLoss(torch.nn.Module):
         self.nID = opt.nID
         self.classifier = nn.Linear(self.emb_dim, self.nID)
         self.IDLoss = nn.CrossEntropyLoss(ignore_index=-1)
-        #self.TriLoss = TripletLoss()
+        self.TriLoss = TripletLoss()
         self.emb_scale = math.sqrt(2) * math.log(self.nID - 1)
         self.s_det = nn.Parameter(-1.85 * torch.ones(1))
         self.s_id = nn.Parameter(-1.05 * torch.ones(1))
@@ -44,6 +44,18 @@ class MotLoss(torch.nn.Module):
                 output['hm'] = _sigmoid(output['hm'])
 
             hm_loss += self.crit(output['hm'], batch['hm']) / opt.num_stacks
+            # if opt.head_wh_weight > 0:
+            #     if opt.dense_wh:
+            #         mask_weight = batch['dense_wh_mask'].sum() + 1e-4
+            #         wh_loss += (
+            #                        self.crit_wh(output['wh'] * batch['dense_wh_mask'],
+            #                                     batch['dense_wh'] * batch['dense_wh_mask']) /
+            #                        mask_weight) / opt.num_stacks
+            #     else:
+            #         head_wh_loss += self.crit_reg(
+            #             output['head_wh'], batch['head_mask'],
+            #             batch['ind'], batch['head_wh']) / opt.num_stacks
+
             if opt.wh_weight > 0:
                 if opt.dense_wh:
                     mask_weight = batch['dense_wh_mask'].sum() + 1e-4
@@ -59,6 +71,9 @@ class MotLoss(torch.nn.Module):
             if opt.reg_offset and opt.off_weight > 0:
                 off_loss += self.crit_reg(output['reg'], batch['reg_mask'],
                                           batch['ind'], batch['reg']) / opt.num_stacks
+            # if opt.reg_head and opt.head_weight > 0:
+            #     head_reg_loss = self.crit_reg(output['head_reg'], batch['head_mask'],
+            #                               batch['ind'], batch['head_reg']) / opt.num_stacks
 
             if opt.id_weight > 0:
                 id_head = _tranpose_and_gather_feat(output['id'], batch['ind'])
@@ -67,7 +82,7 @@ class MotLoss(torch.nn.Module):
                 id_target = batch['ids'][batch['reg_mask'] > 0]
                 id_output = self.classifier(id_head).contiguous()
                 id_loss += self.IDLoss(id_output, id_target)
-                #id_loss += self.IDLoss(id_output, id_target) + self.TriLoss(id_head, id_target)
+                # id_loss += self.IDLoss(id_output, id_target) + self.TriLoss(id_head, id_target)
 
         #loss = opt.hm_weight * hm_loss + opt.wh_weight * wh_loss + opt.off_weight * off_loss + opt.id_weight * id_loss
 

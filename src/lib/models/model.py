@@ -4,11 +4,11 @@ from __future__ import print_function
 
 import torch
 
-from .networks.dlav0 import get_pose_net as get_dlav0
-from .networks.pose_dla_dcn import get_pose_net as get_dla_dcn
-from .networks.pose_hrnet import get_pose_net as get_pose_net_hrnet
-from .networks.resnet_dcn import get_pose_net as get_pose_net_dcn
-from .networks.resnet_fpn_dcn import get_pose_net as get_pose_net_fpn_dcn
+from models.networks.dlav0 import get_pose_net as get_dlav0
+from models.networks.pose_dla_dcn import get_pose_net as get_dla_dcn
+from models.networks.pose_hrnet import get_pose_net as get_pose_net_hrnet
+from models.networks.resnet_dcn import get_pose_net as get_pose_net_dcn
+from models.networks.resnet_fpn_dcn import get_pose_net as get_pose_net_fpn_dcn
 
 _model_factory = {
   'dlav0': get_dlav0, # default DLAup
@@ -29,7 +29,11 @@ def load_model(model, model_path, optimizer=None, resume=False,
                lr=None, lr_step=None):
   start_epoch = 0
   checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
-  print('loaded {}, epoch {}'.format(model_path, checkpoint['epoch']))
+  if 'epoch' in checkpoint:
+    print('loaded {}, epoch {}'.format(model_path, checkpoint['epoch']))
+  else:
+    print('loaded {}, epoch {}'.format(model_path, 0))
+
   state_dict_ = checkpoint['state_dict']
   state_dict = {}
   

@@ -1,20 +1,21 @@
 {
-    "root":"/data/yfzhang/MOT/JDE",
+    "root":"/home/zlz/DataSets/fairmot/data",
     "train":
     {
         "mot17":"./data/mot17.train",
-        "caltech":"./data/caltech.train",
-        "citypersons":"./data/citypersons.train",
-        "cuhksysu":"./data/cuhksysu.train",
         "prw":"./data/prw.train",
-        "eth":"./data/eth.train"
+        "mot15":"./data/mot15.train"
     },
     "test_emb":
     {
+        "mot17":"./data/mot17.validation",
+        "prw":"./data/prw.val",
         "mot15":"./data/mot15.val"
     },
     "test":
     {
-        "mot15":"./data/mot15.val"
+        "mot17":"./data/mot17.validation",
+        "citypersons":"./data/citypersons.val",
+        "prw":"./data/prw.val"
     }
 }

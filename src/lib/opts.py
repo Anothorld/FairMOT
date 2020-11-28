@@ -13,6 +13,7 @@ class opts(object):
     self.parser.add_argument('task', default='mot', help='mot')
     self.parser.add_argument('--dataset', default='jde', help='jde')
     self.parser.add_argument('--exp_id', default='default')
+    self.parser.add_argument('--dataroot', default='/media/data/DataSet/DETRAC_TRACK')
     self.parser.add_argument('--test', action='store_true')
     #self.parser.add_argument('--load_model', default='../models/ctdet_coco_dla_2x.pth',
                              #help='path to pretrained model')
@@ -27,7 +28,7 @@ class opts(object):
     # system
     self.parser.add_argument('--gpus', default='0, 1',
                              help='-1 for CPU, use comma for multiple gpus')
-    self.parser.add_argument('--num_workers', type=int, default=8,
+    self.parser.add_argument('--num_workers', type=int, default=0,
                              help='dataloader threads. 0 for single-thread.')
     self.parser.add_argument('--not_cuda_benchmark', action='store_true',
                              help='disable when the input size is not fixed.')
@@ -99,6 +100,7 @@ class opts(object):
                              help='keep the original resolution'
                                   ' during validation.')
     # tracking
+    self.parser.add_argument('--test_zx', default=True, help='test ZX dataset')
     self.parser.add_argument('--test_mot16', default=False, help='test mot16')
     self.parser.add_argument('--val_mot15', default=False, help='val mot15')
     self.parser.add_argument('--test_mot15', default=False, help='test mot15')
@@ -118,7 +120,7 @@ class opts(object):
 
     # mot
     self.parser.add_argument('--data_cfg', type=str,
-                             default='../src/lib/cfg/data.json',
+                             default='./lib/cfg/data.json',
                              help='load data from cfg')
     self.parser.add_argument('--data_dir', type=str, default='/data/yfzhang/MOT/JDE')
 

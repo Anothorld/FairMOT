@@ -12,6 +12,7 @@ try:
   import tensorboardX
   print('Using tensorboardX')
 except:
+  print('Not using tensorboardX')
   USE_TENSORBOARD = False
 
 class Logger(object):

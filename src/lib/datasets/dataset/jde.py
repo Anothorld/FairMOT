@@ -15,15 +15,16 @@ from torch.utils.data import Dataset
 from torchvision.transforms import transforms as T
 from cython_bbox import bbox_overlaps as bbox_ious
 from opts import opts
-from utils.image import gaussian_radius, draw_umich_gaussian, draw_msra_gaussian
+from utils.image import gaussian_radius, draw_umich_gaussian, draw_msra_gaussian, draw_umich_gaussian_mod, gaussian_radius_mod
 from utils.utils import xyxy2xywh, generate_anchors, xywh2xyxy, encode_delta
 
 
 class LoadImages:  # for inference
     def __init__(self, path, img_size=(1088, 608)):
+        self.frame_rate = 25
         if os.path.isdir(path):
             image_format = ['.jpg', '.jpeg', '.png', '.tif']
-            self.files = sorted(glob.glob('%s/*.*' % path))
+            self.files = sorted(glob.glob('%s/*.*' % path), key=lambda x: int(os.path.basename(x).split('.')[0].split('g')[1]))
             self.files = list(filter(lambda x: os.path.splitext(x)[1].lower() in image_format, self.files))
         elif os.path.isfile(path):
             self.files = [path]
@@ -192,6 +193,11 @@ class LoadImagesAndLabels:  # for training
             labels[:, 3] = ratio * h * (labels0[:, 3] - labels0[:, 5] / 2) + padh
             labels[:, 4] = ratio * w * (labels0[:, 2] + labels0[:, 4] / 2) + padw
             labels[:, 5] = ratio * h * (labels0[:, 3] + labels0[:, 5] / 2) + padh
+            if labels.shape[1] > 6:
+                labels[:, 6] = ratio * w * (labels0[:, 6] - labels0[:, 8] / 2) + padw if labels[:, 6] > 0 else -1
+                labels[:, 7] = ratio * h * (labels0[:, 7] - labels0[:, 9] / 2) + padh if labels[:, 7] > 0 else -1
+                labels[:, 8] = ratio * w * (labels0[:, 6] + labels0[:, 8] / 2) + padw
+                labels[:, 9] = ratio * h * (labels0[:, 7] + labels0[:, 9] / 2) + padh
         else:
             labels = np.array([])
 
@@ -209,7 +215,7 @@ class LoadImagesAndLabels:  # for training
             plt.plot(labels[:, [2, 4, 4, 2, 2]].T, labels[:, [3, 3, 5, 5, 3]].T, '.-')
             plt.axis('off')
             plt.savefig('test.jpg')
-            time.sleep(10)
+            time.sleep(0.01)
 
         nL = len(labels)
         if nL > 0:
@@ -219,6 +225,12 @@ class LoadImagesAndLabels:  # for training
             labels[:, 3] /= height
             labels[:, 4] /= width
             labels[:, 5] /= height
+            if labels.shape[1] > 6:
+                labels[:, 6:10] = xyxy2xywh(labels[:, 6:10].copy())
+                labels[:, 6] /= width
+                labels[:, 7] /= height
+                labels[:, 8] /= width
+                labels[:, 9] /= height
         if self.augment:
             # random left-right flip
             lr_flip = True
@@ -427,13 +439,18 @@ class JointDataset(LoadImagesAndLabels):  # for training
         num_classes = self.num_classes
         num_objs = labels.shape[0]
         hm = np.zeros((num_classes, output_h, output_w), dtype=np.float32)
+        head_wh = np.zeros((self.max_objs, 2), dtype=np.float32)
         wh = np.zeros((self.max_objs, 2), dtype=np.float32)
         reg = np.zeros((self.max_objs, 2), dtype=np.float32)
+        head_reg = np.zeros((self.max_objs, 2), dtype=np.float32)
         ind = np.zeros((self.max_objs, ), dtype=np.int64)
         reg_mask = np.zeros((self.max_objs, ), dtype=np.uint8)
+        head_mask = np.zeros((self.max_objs,), dtype=np.uint8)
         ids = np.zeros((self.max_objs, ), dtype=np.int64)
 
-        draw_gaussian = draw_msra_gaussian if self.opt.mse_loss else draw_umich_gaussian
+        # draw_gaussian = draw_msra_gaussian if self.opt.mse_loss else draw_umich_gaussian
+        # draw_gaussian = draw_umich_gaussian
+        draw_gaussian = draw_umich_gaussian_mod
         for k in range(num_objs):
             label = labels[k]
             bbox = label[2:]
@@ -444,22 +461,46 @@ class JointDataset(LoadImagesAndLabels):  # for training
             bbox[1] = np.clip(bbox[1], 0, output_h - 1)
             h = bbox[3]
             w = bbox[2]
+            if len(bbox) > 4:
+                bbox[[4, 6]] = bbox[[4, 6]] * output_w
+                bbox[[5, 7]] = bbox[[5, 7]] * output_h
+                bbox[4] = np.clip(bbox[4], 0, output_w - 1)
+                bbox[5] = np.clip(bbox[5], 0, output_h - 1)
+            else:
+                addi = np.ones_like(bbox) * -1
+                bbox =np.concatenate([bbox, addi])
+
+            head_h = bbox[7]
+            head_w = bbox[6]
 
             if h > 0 and w > 0:
-                radius = gaussian_radius((math.ceil(h), math.ceil(w)))
-                radius = max(0, int(radius))
-                radius = self.opt.hm_gauss if self.opt.mse_loss else radius
+
+                radiusW, radiusH = gaussian_radius_mod((math.ceil(h), math.ceil(w)))
+                radiusW = max(0, int(radiusW))
+                radiusH = max(0, int(radiusH))
+                # radius = gaussian_radius((math.ceil(h), math.ceil(w)))
+                # radius = max(0, int(radius))
+                # radius = self.opt.hm_gauss if self.opt.mse_loss else radius
+
+                head_ct = np.array([bbox[4], bbox[5]], dtype=np.float32) if bbox[4] != -1 else np.array([-1, -1], dtype=np.float32)
                 ct = np.array(
                     [bbox[0], bbox[1]], dtype=np.float32)
                 ct_int = ct.astype(np.int32)
-                draw_gaussian(hm[cls_id], ct_int, radius)
+                # draw_gaussian(hm[cls_id], ct_int, radius)
+                draw_gaussian(hm[cls_id], ct_int, radiusW, radiusH)
                 wh[k] = 1. * w, 1. * h
+                if bbox[4] != -1:
+                    head_wh[k] = 1. * head_w, 1. * head_h
+                else:
+                    head_wh[k] = -1, -1
                 ind[k] = ct_int[1] * output_w + ct_int[0]
-                reg[k] = ct - ct_int
+                reg[k] = ct - ct_int if bbox[4] != -1 else np.array([-1, -1], dtype=np.float32)
+                head_reg[k] = head_ct - ct_int if bbox[4] != -1 else -1, -1
                 reg_mask[k] = 1
+                head_mask[k] = 1 if bbox[4] != -1 else 0
                 ids[k] = label[1]
 
-        ret = {'input': imgs, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh, 'reg': reg, 'ids': ids}
+        ret = {'input': imgs, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh, 'reg': reg, 'ids': ids, 'head_mask': head_mask, 'head_wh': head_wh, 'head_reg': head_reg}
         return ret
 
 

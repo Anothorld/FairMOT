@@ -92,27 +92,70 @@ def crop(img, center, scale, output_size, rot=0):
     return dst_img
 
 
+def gaussian2D_mod(shape, sigmaW=1, sigmaH=1):
+    m, n = [(ss - 1.) / 2. for ss in shape]
+    y, x = np.ogrid[-m:m + 1, -n:n + 1]
+
+    h = np.exp(-(x * x / (2 * sigmaW * sigmaW) + y * y / (2 * sigmaH * sigmaH)))
+    h[h < np.finfo(h.dtype).eps * h.max()] = 0
+    return h
+
+def draw_umich_gaussian_mod(heatmap, center, rw, rh, k=1):
+    diameterW = 2 * rw + 1
+    diameterH = 2 * rh + 1
+    # gaussian = gaussian2D((int(1.4*diameter), diameter), sigma=diameter / 6)
+    gaussian = gaussian2D_mod((diameterH, diameterW), sigmaW=diameterW / 6, sigmaH=diameterH / 6)
+
+    x, y = int(center[0]), int(center[1])
+
+    height, width = heatmap.shape[0:2]
+
+    left, right = x - rw, x + rw
+    top, bottom = y - rh, y + rh
+
+    masked_heatmap = heatmap[y - rh:y + rh+1, x - rw:x + rw+1]
+    masked_gaussian = gaussian
+    if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0:  # TODO debug
+        try:
+            np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
+        except:
+            print('erro')
+    return heatmap
+
+# TODO 尝试0.05
+def gaussian_radius_mod(det_size, center_area=0.1):
+    height, width = det_size
+    ratio = max(height, width) / min(height, width)
+
+    # r repeasent x axies offset
+    r = np.sqrt((center_area * width * height / ratio))
+
+    return (r, ratio * r) if height > width else ( ratio * r, r)
+
+
 def gaussian_radius(det_size, min_overlap=0.7):
-  height, width = det_size
+    height, width = det_size
+    ratio = max(height, width) / min(height, width)
 
-  a1  = 1
-  b1  = (height + width)
-  c1  = width * height * (1 - min_overlap) / (1 + min_overlap)
-  sq1 = np.sqrt(b1 ** 2 - 4 * a1 * c1)
-  r1  = (b1 + sq1) / 2
 
-  a2  = 4
-  b2  = 2 * (height + width)
-  c2  = (1 - min_overlap) * width * height
-  sq2 = np.sqrt(b2 ** 2 - 4 * a2 * c2)
-  r2  = (b2 + sq2) / 2
+    a1  = 1
+    b1  = (height + width)
+    c1  = width * height * (1 - min_overlap) / (1 + min_overlap)
+    sq1 = np.sqrt(b1 ** 2 - 4 * a1 * c1)
+    r1  = (b1 + sq1) / 2
 
-  a3  = 4 * min_overlap
-  b3  = -2 * min_overlap * (height + width)
-  c3  = (min_overlap - 1) * width * height
-  sq3 = np.sqrt(b3 ** 2 - 4 * a3 * c3)
-  r3  = (b3 + sq3) / 2
-  return min(r1, r2, r3)
+    a2  = 4
+    b2  = 2 * (height + width)
+    c2  = (1 - min_overlap) * width * height
+    sq2 = np.sqrt(b2 ** 2 - 4 * a2 * c2)
+    r2  = (b2 + sq2) / 2
+
+    a3  = 4 * min_overlap
+    b3  = -2 * min_overlap * (height + width)
+    c3  = (min_overlap - 1) * width * height
+    sq3 = np.sqrt(b3 ** 2 - 4 * a3 * c3)
+    r3  = (b3 + sq3) / 2
+    return min(r1, r2, r3)
 
 
 def gaussian2D(shape, sigma=1):
@@ -122,23 +165,24 @@ def gaussian2D(shape, sigma=1):
     h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
     return h
-
+# todo 针对行人矩形框抑制纵向中心点漂移,宽松横向中心点漂移
 def draw_umich_gaussian(heatmap, center, radius, k=1):
-  diameter = 2 * radius + 1
-  gaussian = gaussian2D((diameter, diameter), sigma=diameter / 6)
-  
-  x, y = int(center[0]), int(center[1])
+    diameter = 2 * radius + 1
+    # gaussian = gaussian2D((int(1.4*diameter), diameter), sigma=diameter / 6)
+    gaussian = gaussian2D((diameter, diameter), sigma=diameter / 6)
 
-  height, width = heatmap.shape[0:2]
-    
-  left, right = min(x, radius), min(width - x, radius + 1)
-  top, bottom = min(y, radius), min(height - y, radius + 1)
+    x, y = int(center[0]), int(center[1])
 
-  masked_heatmap  = heatmap[y - top:y + bottom, x - left:x + right]
-  masked_gaussian = gaussian[radius - top:radius + bottom, radius - left:radius + right]
-  if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0: # TODO debug
-    np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
-  return heatmap
+    height, width = heatmap.shape[0:2]
+
+    left, right = min(x, radius), min(width - x, radius + 1)
+    top, bottom = min(y, radius), min(height - y, radius + 1)
+
+    masked_heatmap = heatmap[y - top:y + bottom, x - left:x + right]
+    masked_gaussian = gaussian[radius - top:radius + bottom, radius - left:radius + right]
+    if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0: # TODO debug
+        np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
+    return heatmap
 
 def draw_dense_reg(regmap, heatmap, center, value, radius, is_offset=False):
   diameter = 2 * radius + 1
