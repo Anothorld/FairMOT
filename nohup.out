@@ -1,0 +1,11 @@
+[I 21:54:26.042 NotebookApp] [nb_conda_kernels] enabled, 5 kernels found
+[I 21:54:26.234 NotebookApp] [jupyter_nbextensions_configurator] enabled 0.4.1
+[I 21:54:26.325 NotebookApp] [nb_conda] enabled
+[I 21:54:26.325 NotebookApp] Serving notebooks from local directory: /media/data/PycharmProjects/FairMOT
+[I 21:54:26.325 NotebookApp] Jupyter Notebook 6.1.4 is running at:
+[I 21:54:26.325 NotebookApp] http://localhost:8888/
+[I 21:54:26.325 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[W 21:54:26.328 NotebookApp] No web browser found: could not locate runnable browser.
+[I 21:54:57.867 NotebookApp] Shutting down on /api/shutdown request.
+[I 21:54:57.868 NotebookApp] Shutting down 0 kernels
+[I 21:54:57.868 NotebookApp] Shutting down 0 terminals

@@ -1,0 +1,83 @@
+[I 17:31:46.801 NotebookApp] Serving notebooks from local directory: /media/data/PycharmProjects/FairMOT/src
+[I 17:31:46.801 NotebookApp] Jupyter Notebook 6.1.4 is running at:
+[I 17:31:46.801 NotebookApp] http://localhost:8888/
+[I 17:31:46.801 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[I 17:32:25.874 NotebookApp] 302 GET / (127.0.0.1) 1.45ms
+[I 17:36:16.961 NotebookApp] 302 GET / (127.0.0.1) 0.78ms
+[I 17:36:16.997 NotebookApp] 302 GET /tree? (127.0.0.1) 0.99ms
+[I 17:36:22.980 NotebookApp] 302 POST /login?next=%2Ftree%3F (127.0.0.1) 58.05ms
+[W 17:36:25.080 NotebookApp] 404 GET /conda/packages/available?_=1606383383234 (127.0.0.1) 14.02ms referer=http://120.26.175.179:48888/tree?
+[W 17:36:25.082 NotebookApp] 404 GET /conda/environments?_=1606383383233 (127.0.0.1) 1.55ms referer=http://120.26.175.179:48888/tree?
+[W 17:36:31.223 NotebookApp] 404 GET /conda/environments?_=1606383383235 (127.0.0.1) 2.67ms referer=http://120.26.175.179:48888/tree?
+[W 17:36:33.807 NotebookApp] 404 GET /conda/environments?_=1606383383236 (127.0.0.1) 2.65ms referer=http://120.26.175.179:48888/tree?
+[I 17:37:00.203 NotebookApp] Shutting down on /api/shutdown request.
+[I 17:37:00.204 NotebookApp] Shutting down 0 kernels
+[I 17:37:00.204 NotebookApp] Shutting down 0 terminals
+[I 17:37:28.214 NotebookApp] [nb_conda_kernels] enabled, 5 kernels found
+[I 17:37:28.482 NotebookApp] [nb_conda] enabled
+[I 17:37:28.482 NotebookApp] Serving notebooks from local directory: /media/data/PycharmProjects/FairMOT/src
+[I 17:37:28.482 NotebookApp] Jupyter Notebook 6.1.4 is running at:
+[I 17:37:28.482 NotebookApp] http://localhost:8888/
+[I 17:37:28.482 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[I 17:37:34.324 NotebookApp] 302 GET / (127.0.0.1) 3.43ms
+[W 17:48:32.833 NotebookApp] 404 GET /nbextensions/nbextensions_configurator/tree_tab/main.js?v=20201126173728 (127.0.0.1) 13.25ms referer=http://120.26.175.179:48888/tree?
+[I 17:48:35.326 NotebookApp] Shutting down on /api/shutdown request.
+[I 17:48:35.327 NotebookApp] Shutting down 0 kernels
+[I 17:48:35.328 NotebookApp] Shutting down 0 terminals
+[I 17:48:45.973 NotebookApp] [nb_conda_kernels] enabled, 5 kernels found
+[I 17:48:46.210 NotebookApp] [jupyter_nbextensions_configurator] enabled 0.4.1
+[I 17:48:46.302 NotebookApp] [nb_conda] enabled
+[I 17:48:46.303 NotebookApp] Serving notebooks from local directory: /media/data/PycharmProjects/FairMOT/src
+[I 17:48:46.303 NotebookApp] Jupyter Notebook 6.1.4 is running at:
+[I 17:48:46.303 NotebookApp] http://localhost:8888/
+[I 17:48:46.303 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[I 17:48:51.417 NotebookApp] 302 GET / (127.0.0.1) 1.68ms
+[I 19:13:44.870 NotebookApp] 302 GET / (127.0.0.1) 0.90ms
+[I 19:13:44.887 NotebookApp] 302 GET /tree? (127.0.0.1) 0.97ms
+[I 21:33:20.073 NotebookApp] 302 GET / (127.0.0.1) 0.89ms
+[I 21:33:20.126 NotebookApp] 302 GET /tree? (127.0.0.1) 0.91ms
+[I 21:33:32.356 NotebookApp] 302 POST /login?next=%2Ftree%3F (127.0.0.1) 77.18ms
+[I 21:34:05.275 NotebookApp] 302 GET / (127.0.0.1) 0.82ms
+[I 21:34:05.337 NotebookApp] 302 GET /tree? (127.0.0.1) 0.95ms
+[I 21:35:25.117 NotebookApp] 302 GET / (127.0.0.1) 0.67ms
+[I 21:35:25.190 NotebookApp] 302 GET /tree? (127.0.0.1) 0.90ms
+[I 21:35:26.841 NotebookApp] 302 GET / (127.0.0.1) 0.67ms
+[I 21:35:26.896 NotebookApp] 302 GET /tree? (127.0.0.1) 0.91ms
+[I 21:35:32.466 NotebookApp] 302 POST /login?next=%2Ftree%3F (127.0.0.1) 118.95ms
+[W 21:35:48.385 NotebookApp] Config option `template_path` not recognized by `ExporterCollapsibleHeadings`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.392 NotebookApp] Config option `template_path` not recognized by `ExporterCollapsibleHeadings`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.450 NotebookApp] Config option `template_path` not recognized by `TocExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.455 NotebookApp] Config option `template_path` not recognized by `TocExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.470 NotebookApp] Config option `template_path` not recognized by `LenvsHTMLExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.479 NotebookApp] Config option `template_path` not recognized by `LenvsHTMLExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.496 NotebookApp] Config option `template_path` not recognized by `LenvsTocHTMLExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.506 NotebookApp] Config option `template_path` not recognized by `LenvsTocHTMLExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.537 NotebookApp] Config option `template_path` not recognized by `LenvsLatexExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.542 NotebookApp] Config option `template_path` not recognized by `LenvsLatexExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.665 NotebookApp] Config option `template_path` not recognized by `LenvsSlidesExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.671 NotebookApp] Config option `template_path` not recognized by `LenvsSlidesExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.743 NotebookApp] Config option `template_path` not recognized by `ExporterCollapsibleHeadings`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.750 NotebookApp] Config option `template_path` not recognized by `ExporterCollapsibleHeadings`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.788 NotebookApp] Config option `template_path` not recognized by `TocExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.794 NotebookApp] Config option `template_path` not recognized by `TocExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.807 NotebookApp] Config option `template_path` not recognized by `LenvsHTMLExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.817 NotebookApp] Config option `template_path` not recognized by `LenvsHTMLExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.834 NotebookApp] Config option `template_path` not recognized by `LenvsTocHTMLExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.843 NotebookApp] Config option `template_path` not recognized by `LenvsTocHTMLExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.874 NotebookApp] Config option `template_path` not recognized by `LenvsLatexExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:48.880 NotebookApp] Config option `template_path` not recognized by `LenvsLatexExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:49.003 NotebookApp] Config option `template_path` not recognized by `LenvsSlidesExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[W 21:35:49.009 NotebookApp] Config option `template_path` not recognized by `LenvsSlidesExporter`.  Did you mean one of: `extra_template_paths, template_name, template_paths`?
+[I 21:36:09.799 NotebookApp] Kernel started: d31153e1-b72e-4e95-92bd-cc0b85fab83d, name: python3
+[I 21:38:09.608 NotebookApp] Saving file at /Untitled.ipynb
+[I 21:42:09.614 NotebookApp] Saving file at /Untitled.ipynb
+[I 21:44:09.649 NotebookApp] Saving file at /Untitled.ipynb
+[I 21:46:09.923 NotebookApp] Saving file at /Untitled.ipynb
+[I 21:48:09.620 NotebookApp] Saving file at /Untitled.ipynb
+[W 21:50:40.303 NotebookApp] WebSocket ping timeout after 119881 ms.
+[I 21:50:45.308 NotebookApp] Starting buffering for d31153e1-b72e-4e95-92bd-cc0b85fab83d:c4724320841e4d0281ff63c6f85d2205
+[I 21:51:59.324 NotebookApp] Restoring connection for d31153e1-b72e-4e95-92bd-cc0b85fab83d:c4724320841e4d0281ff63c6f85d2205
+[I 21:53:34.917 NotebookApp] Shutting down on /api/shutdown request.
+[I 21:53:34.918 NotebookApp] Shutting down 1 kernel
+[I 21:53:35.220 NotebookApp] Kernel shutdown: d31153e1-b72e-4e95-92bd-cc0b85fab83d
+[I 21:53:35.221 NotebookApp] Shutting down 0 terminals

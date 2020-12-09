@@ -1,1 +1,12 @@
+.vscode
 .idea
+*.pth
+exp/*/*
+*.mp4
+*.so
+*.txt
+*.train
+*.val
+__*__/
+*.o
+

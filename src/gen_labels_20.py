@@ -1,6 +1,7 @@
 import os.path as osp
 import os
 import numpy as np
+import tqdm
 
 
 def mkdirs(d):
@@ -8,8 +9,8 @@ def mkdirs(d):
         os.makedirs(d)
 
 
-seq_root = '/data/yfzhang/MOT/JDE/MOT20/images/train'
-label_root = '/data/yfzhang/MOT/JDE/MOT20/labels_with_ids/train'
+seq_root = '/home/zlz/DataSets/MOT20/images/train'
+label_root = '/home/zlz/DataSets/MOT20/labels_with_ids/train'
 mkdirs(label_root)
 seqs = [s for s in os.listdir(seq_root)]
 
@@ -26,8 +27,10 @@ for seq in seqs:
     seq_label_root = osp.join(label_root, seq, 'img1')
     mkdirs(seq_label_root)
 
-    for fid, tid, x, y, w, h, mark, label, _ in gt:
-        if mark == 0 or not label == 1:
+    for fid, tid, x, y, w, h, mark, label, _ in tqdm.tqdm(gt):
+        if label == 2:
+            print(2)
+        if mark == 0 or not label in [1, 2]:
             continue
         fid = int(fid)
         tid = int(tid)

@@ -27,10 +27,12 @@ def main(opt):
     f = open(opt.data_cfg)
     data_config = json.load(f)
     trainset_paths = data_config['train']
+    valset_paths = data_config['test']
     dataset_root = data_config['root']
     f.close()
-    transforms = T.Compose([T.ToTensor()])
-    dataset = Dataset(opt, dataset_root, trainset_paths, (1088, 608), augment=True, transforms=transforms)
+    transforms = T.Compose([T.ToPILImage(), T.Resize((1088, 608)), T.ToTensor()])
+    dataset = Dataset(opt, dataset_root, trainset_paths, (1088, 608), augment=False, transforms=transforms)
+    val_dataset = Dataset(opt, dataset_root, valset_paths, (1088, 608), augment=False, transforms=transforms)
     opt = opts().update_dataset_info_and_set_heads(opt, dataset)
     print(opt)
 
@@ -48,6 +50,14 @@ def main(opt):
             model, opt.load_model, optimizer, opt.resume, opt.lr, opt.lr_step)
 
     # Get dataloader
+    test_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        batch_size=4,
+        shuffle=True,
+        num_workers=opt.num_workers,
+        pin_memory=True,
+        drop_last=True
+    )
 
     train_loader = torch.utils.data.DataLoader(
         dataset,
@@ -74,6 +84,10 @@ def main(opt):
         if opt.val_intervals > 0 and epoch % opt.val_intervals == 0:
             save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(mark)),
                        epoch, model, optimizer)
+            log_dict_val, _ = trainer.val(epoch, test_loader)
+            for k, v in log_dict_val.items():
+                logger.scalar_summary('val_{}'.format(k), v, epoch)
+                logger.write('val:{} {:8f} | '.format(k, v))
         else:
             save_model(os.path.join(opt.save_dir, 'model_last.pth'),
                        epoch, model, optimizer)
@@ -85,7 +99,7 @@ def main(opt):
             print('Drop LR to', lr)
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
-        if epoch % 5 == 0:
+        if epoch % 2 == 0:
             save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(epoch)),
                        epoch, model, optimizer)
     logger.close()

@@ -1,0 +1,16 @@
+{
+    "root":"/media/arnold/新加卷/Data",
+    "train":
+    {
+
+        "prw":"/home/arnold/PycharmProjects/FairMOT/test_script/prw.train"
+    },
+    "test_emb":
+    {
+        "prw":"/home/arnold/PycharmProjects/FairMOT/test_script/prw.train"
+    },
+    "test":
+    {
+        "prw":"/home/arnold/PycharmProjects/FairMOT/test_script/prw.train"
+    }
+}
