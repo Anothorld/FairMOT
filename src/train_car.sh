@@ -1,0 +1,1 @@
+python train.py mot --arch hrnet_32 --data_cfg /home/zlz/PycharmProjects/FairMOT/src/lib/cfg/car_track.json --exp_id detrac_aau_visdrone --batch_size 6 --reid_dim 128 --load_model /home/zlz/PycharmProjects/FairMOT/exp/mot/detrac_hrnet/model_last.pth --val_intervals 1

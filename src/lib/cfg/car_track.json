@@ -1,14 +1,18 @@
 {
-    "root":"/media/data/DataSet/DETRAC_TRACK",
+    "root":"/media/data/DataSet",
     "train":
     {
-        "detrac":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.train"
+        "detrac":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.train",
+        "visdrone":"/home/zlz/PycharmProjects/FairMOT/src/data/visdrone.train",
+        "aau":"/home/zlz/PycharmProjects/FairMOT/src/data/aau.train"
     },
-    "test_emb":
+    "val":
     {
+        "visdrone":"/home/zlz/PycharmProjects/FairMOT/src/data/visdrone.val"
     },
     "test":
     {
-        "detrac":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.val"
+        "detrac":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.val",
+        "visdrone":"/home/zlz/PycharmProjects/FairMOT/src/data/visdrone.test"
     }
 }
