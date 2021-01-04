@@ -312,9 +312,9 @@ def set_gpu(gpu=0):
 if __name__ == '__main__':
     from glob import glob 
     import time
-    png_list = glob("/media/data/DataSet/VisDrone/VisDrone2019-MOT-train/images/*/*.jpg")
+    png_list = glob("/media/data/DataSet/CityCam_MOT/images/*/*/*.png")
     for png_path in png_list:
-        anno_path = png_path.replace('images', 'labels_with_ids').replace('jpg', 'txt')
+        anno_path = png_path.replace('images', 'labels_with_ids').replace('png', 'txt')
 
         crowd_img, density_map = read_test_data(png_path, anno_path)
         # print(density_map[0, :, :, 0])

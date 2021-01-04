@@ -4,11 +4,9 @@
     {
         "detrac":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.train",
         "visdrone":"/home/zlz/PycharmProjects/FairMOT/src/data/visdrone.train",
-        "aau":"/home/zlz/PycharmProjects/FairMOT/src/data/aau.train"
-    },
-    "val":
-    {
-        "visdrone":"/home/zlz/PycharmProjects/FairMOT/src/data/visdrone.val"
+        "aau":"/home/zlz/PycharmProjects/FairMOT/src/data/aau.train",
+        "citycam":"/home/zlz/PycharmProjects/FairMOT/src/data/citycam.train",
+        "visdrone_val":"/home/zlz/PycharmProjects/FairMOT/src/data/visdrone.val"
     },
     "test":
     {

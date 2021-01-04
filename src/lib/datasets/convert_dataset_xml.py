@@ -9,6 +9,7 @@ output_root = '/media/data/DataSet/DETRAC_TRACK'
 image_root = '/media/data/DataSet/DETRAC_TRACK/DETRAC-train-data/Insight-MVT_Annotation_Train'
 
 f_tv = open('detrac.train', 'w')
+id_offset = 0
 for xml_f in tqdm(glob("/home/zlz/DataSets/DETRAC_TRACK/DETRAC-Train-Annotations-XML-v3/*.xml")):
     file_name = os.path.basename(xml_f)
     video_dir = '_'.join(file_name.split('_')[:2])
@@ -36,11 +37,11 @@ for xml_f in tqdm(glob("/home/zlz/DataSets/DETRAC_TRACK/DETRAC-Train-Annotations
         frame_id = int(frame_node.getAttribute('num'))
         with open(os.path.join(output_root, 'labels_with_ids', 'train' ,f'{video_dir}-img{frame_id:05d}.txt'), 'w') as f:
             img = cv2.imread(os.path.join(image_root, video_dir, f'img{frame_id:05d}.jpg'))
-            for rect in ignore_rect:
-                img = cv2.rectangle(img, rect[0], rect[1], (0, 0, 0), -1)
-            cv2.imwrite(os.path.join(output_root, 'images', 'train', f'{video_dir}-img{frame_id:05d}.jpg'), img)
+            # for rect in ignore_rect:
+            #     img = cv2.rectangle(img, rect[0], rect[1], (0, 0, 0), -1)
+            # cv2.imwrite(os.path.join(output_root, 'images', 'train', f'{video_dir}-img{frame_id:05d}.jpg'), img)
             for car_node in frame_node.getElementsByTagName('target_list')[0].getElementsByTagName("target"):
-                id = car_node.getAttribute('id')
+                id = int(car_node.getAttribute('id'))
                 box_node = car_node.getElementsByTagName('box')
                 height = float(box_node[0].getAttribute('height'))
                 left = float(box_node[0].getAttribute('left'))
@@ -50,8 +51,9 @@ for xml_f in tqdm(glob("/home/zlz/DataSets/DETRAC_TRACK/DETRAC-Train-Annotations
                 y = (top + 0.5*height) / HEIGHT
                 w = width / WIDTH
                 h = height / HEIGHT
-                print(f'0 {id} {x:.3f} {y:.3f} {w:.3f} {h:.3f}', file=f)
-            print(os.path.join('images', 'train', f'{video_dir}-img{frame_id:05d}.jpg'), file=f_tv)
+                print(f'0 {id + id_offset} {x:.3f} {y:.3f} {w:.3f} {h:.3f}', file=f)
+            print(os.path.join('DETRAC_TRACK', 'images', 'train', f'{video_dir}-img{frame_id:05d}.jpg'), file=f_tv)
+    id_offset += id
 
 
 # <collection shelf="New Arrivals">

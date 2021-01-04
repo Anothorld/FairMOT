@@ -10,3 +10,5 @@ exp/*/*
 __*__/
 *.o
 
+test_script/a.proto
+test_script/netease.py

@@ -439,13 +439,13 @@ class JointDataset(LoadImagesAndLabels):  # for training
         num_classes = self.num_classes
         num_objs = labels.shape[0]
         hm = np.zeros((num_classes, output_h, output_w), dtype=np.float32)
-        head_wh = np.zeros((self.max_objs, 2), dtype=np.float32)
+        # head_wh = np.zeros((self.max_objs, 2), dtype=np.float32)
         wh = np.zeros((self.max_objs, 2), dtype=np.float32)
         reg = np.zeros((self.max_objs, 2), dtype=np.float32)
-        head_reg = np.zeros((self.max_objs, 2), dtype=np.float32)
+        # head_reg = np.zeros((self.max_objs, 2), dtype=np.float32)
         ind = np.zeros((self.max_objs, ), dtype=np.int64)
         reg_mask = np.zeros((self.max_objs, ), dtype=np.uint8)
-        head_mask = np.zeros((self.max_objs,), dtype=np.uint8)
+        # head_mask = np.zeros((self.max_objs,), dtype=np.uint8)
         ids = np.zeros((self.max_objs, ), dtype=np.int64)
 
         # draw_gaussian = draw_msra_gaussian if self.opt.mse_loss else draw_umich_gaussian
@@ -461,17 +461,17 @@ class JointDataset(LoadImagesAndLabels):  # for training
             bbox[1] = np.clip(bbox[1], 0, output_h - 1)
             h = bbox[3]
             w = bbox[2]
-            if len(bbox) > 4:
-                bbox[[4, 6]] = bbox[[4, 6]] * output_w
-                bbox[[5, 7]] = bbox[[5, 7]] * output_h
-                bbox[4] = np.clip(bbox[4], 0, output_w - 1)
-                bbox[5] = np.clip(bbox[5], 0, output_h - 1)
-            else:
-                addi = np.ones_like(bbox) * -1
-                bbox =np.concatenate([bbox, addi])
+            # if len(bbox) > 4:
+            #     bbox[[4, 6]] = bbox[[4, 6]] * output_w
+            #     bbox[[5, 7]] = bbox[[5, 7]] * output_h
+            #     bbox[4] = np.clip(bbox[4], 0, output_w - 1)
+            #     bbox[5] = np.clip(bbox[5], 0, output_h - 1)
+            # else:
+            #     addi = np.ones_like(bbox) * -1
+            #     bbox = np.concatenate([bbox, addi])
 
-            head_h = bbox[7]
-            head_w = bbox[6]
+            # head_h = bbox[7]
+            # head_w = bbox[6]
 
             if h > 0 and w > 0:
 
@@ -482,25 +482,25 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 # radius = max(0, int(radius))
                 # radius = self.opt.hm_gauss if self.opt.mse_loss else radius
 
-                head_ct = np.array([bbox[4], bbox[5]], dtype=np.float32) if bbox[4] != -1 else np.array([-1, -1], dtype=np.float32)
+                # head_ct = np.array([bbox[4], bbox[5]], dtype=np.float32) if bbox[4] != -1 else np.array([-1, -1], dtype=np.float32)
                 ct = np.array(
                     [bbox[0], bbox[1]], dtype=np.float32)
                 ct_int = ct.astype(np.int32)
                 # draw_gaussian(hm[cls_id], ct_int, radius)
                 draw_gaussian(hm[cls_id], ct_int, radiusW, radiusH)
                 wh[k] = 1. * w, 1. * h
-                if bbox[4] != -1:
-                    head_wh[k] = 1. * head_w, 1. * head_h
-                else:
-                    head_wh[k] = -1, -1
+                # if bbox[4] != -1:
+                #     head_wh[k] = 1. * head_w, 1. * head_h
+                # else:
+                #     head_wh[k] = -1, -1
                 ind[k] = ct_int[1] * output_w + ct_int[0]
-                reg[k] = ct - ct_int if bbox[4] != -1 else np.array([-1, -1], dtype=np.float32)
-                head_reg[k] = head_ct - ct_int if bbox[4] != -1 else -1, -1
+                reg[k] = ct - ct_int 
+                # head_reg[k] = head_ct - ct_int if bbox[4] != -1 else -1, -1
                 reg_mask[k] = 1
-                head_mask[k] = 1 if bbox[4] != -1 else 0
+                # head_mask[k] = 1 if bbox[4] != -1 else 0
                 ids[k] = label[1]
 
-        ret = {'input': imgs, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh, 'reg': reg, 'ids': ids, 'head_mask': head_mask, 'head_wh': head_wh, 'head_reg': head_reg}
+        ret = {'input': imgs, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh, 'reg': reg, 'ids': ids}
         return ret
 
 
