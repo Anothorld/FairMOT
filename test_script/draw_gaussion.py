@@ -1,105 +1,17 @@
-# ------------------------------------------------------------------------------
-# Copyright (c) Microsoft
-# Licensed under the MIT License.
-# Written by Bin Xiao (Bin.Xiao@microsoft.com)
-# Modified by Xingyi Zhou
-# ------------------------------------------------------------------------------
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import numpy as np
+import src
 import cv2
-import random
-
-def flip(img):
-  return img[:, :, ::-1].copy()  
-
-def transform_preds(coords, center, scale, output_size):
-    target_coords = np.zeros(coords.shape)
-    trans = get_affine_transform(center, scale, 0, output_size, inv=1)
-    for p in range(coords.shape[0]):
-        target_coords[p, 0:2] = affine_transform(coords[p, 0:2], trans)
-    return target_coords
-
-
-def get_affine_transform(center,
-                         scale,
-                         rot,
-                         output_size,
-                         shift=np.array([0, 0], dtype=np.float32),
-                         inv=0):
-    if not isinstance(scale, np.ndarray) and not isinstance(scale, list):
-        scale = np.array([scale, scale], dtype=np.float32)
-
-    scale_tmp = scale
-    src_w = scale_tmp[0]
-    dst_w = output_size[0]
-    dst_h = output_size[1]
-
-    rot_rad = np.pi * rot / 180
-    src_dir = get_dir([0, src_w * -0.5], rot_rad)
-    dst_dir = np.array([0, dst_w * -0.5], np.float32)
-
-    src = np.zeros((3, 2), dtype=np.float32)
-    dst = np.zeros((3, 2), dtype=np.float32)
-    src[0, :] = center + scale_tmp * shift
-    src[1, :] = center + src_dir + scale_tmp * shift
-    dst[0, :] = [dst_w * 0.5, dst_h * 0.5]
-    dst[1, :] = np.array([dst_w * 0.5, dst_h * 0.5], np.float32) + dst_dir
-
-    src[2:, :] = get_3rd_point(src[0, :], src[1, :])
-    dst[2:, :] = get_3rd_point(dst[0, :], dst[1, :])
-
-    if inv:
-        trans = cv2.getAffineTransform(np.float32(dst), np.float32(src))
-    else:
-        trans = cv2.getAffineTransform(np.float32(src), np.float32(dst))
-
-    return trans
-
-
-def affine_transform(pt, t):
-    new_pt = np.array([pt[0], pt[1], 1.], dtype=np.float32).T
-    new_pt = np.dot(t, new_pt)
-    return new_pt[:2]
-
-
-def get_3rd_point(a, b):
-    direct = a - b
-    return b + np.array([-direct[1], direct[0]], dtype=np.float32)
-
-
-def get_dir(src_point, rot_rad):
-    sn, cs = np.sin(rot_rad), np.cos(rot_rad)
-
-    src_result = [0, 0]
-    src_result[0] = src_point[0] * cs - src_point[1] * sn
-    src_result[1] = src_point[0] * sn + src_point[1] * cs
-
-    return src_result
-
-
-def crop(img, center, scale, output_size, rot=0):
-    trans = get_affine_transform(center, scale, rot, output_size)
-
-    dst_img = cv2.warpAffine(img,
-                             trans,
-                             (int(output_size[0]), int(output_size[1])),
-                             flags=cv2.INTER_LINEAR)
-
-    return dst_img
-
-
-def gaussian_radius_mod(det_size, center_area=0.1):
+import numpy as np
+import math 
+import os  
+import matplotlib.pyplot as plt
+def gaussian_radius_mod(det_size, center_area=0.3):
     height, width = det_size
-    ratio = max(height, width) / min(height, width)
+    ratio = height / width
 
     # r repeasent x axies offset
-    r = np.sqrt((center_area * width * height / ratio))
+    r = np.sqrt(pow(width, 2) * center_area)
 
-    return (r, ratio * r) if height > width else ( ratio * r, r)
+    return (r, ratio * r)
 
 def gaussian_radius(det_size, min_overlap=0.7):
   height, width = det_size
@@ -150,16 +62,16 @@ def draw_umich_gaussian_mod(heatmap, center, rw, rh, k=1):
 
     height, width = heatmap.shape[0:2]
 
-    left, right = x - rw, x + rw
-    top, bottom = y - rh, y + rh
+    left, right = max(0, x - rw), min(width, x + rw +1)
+    top, bottom = max(0, y - rh), min(height, y + rh +1)
 
-    masked_heatmap = heatmap[y - rh:y + rh+1, x - rw:x + rw+1]
-    masked_gaussian = gaussian
+    masked_heatmap = heatmap[top:bottom, left:right]
+    masked_gaussian = gaussian[top - (y - rh): bottom - (y - rh), left - (x - rw):right - (x - rw)]
     if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0:  # TODO debug
-        try:
-            np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
-        except:
-            print('erro')
+        # try:
+        np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
+        # except:
+        #     print('erro')
     return heatmap
 
 def draw_umich_gaussian(heatmap, center, radius, k=1):
@@ -234,36 +146,40 @@ def draw_msra_gaussian(heatmap, center, sigma):
     g[g_y[0]:g_y[1], g_x[0]:g_x[1]])
   return heatmap
 
-def grayscale(image):
-    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-def lighting_(data_rng, image, alphastd, eigval, eigvec):
-    alpha = data_rng.normal(scale=alphastd, size=(3, ))
-    image += np.dot(eigvec, eigval * alpha)
 
-def blend_(alpha, image1, image2):
-    image1 *= alpha
-    image2 *= (1 - alpha)
-    image1 += image2
+img_path = "/media/data/DataSet/DETRAC_TRACK/images/train/MVI_20011-img00258.jpg"
+label_path = img_path.replace('images', 'labels_with_ids').replace('jpg', 'txt')
+ori_img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+ori_w, ori_h = ori_img.shape[1], ori_img.shape[0]
+hm_w = ori_w // 4
+hm_h = ori_h // 4
+hm = np.zeros([hm_h, hm_w])
 
-def saturation_(data_rng, image, gs, gs_mean, var):
-    alpha = 1. + data_rng.uniform(low=-var, high=var)
-    blend_(alpha, image, gs[:, :, None])
+anno = open(label_path, 'r')
+for line in anno.readlines():
+    label = line.strip().split(' ')
+    xc = float(label[2]) * hm_w
+    yc = float(label[3]) * hm_h
+    w = float(label[4]) * hm_w
+    h = float(label[5]) * hm_h
 
-def brightness_(data_rng, image, gs, gs_mean, var):
-    alpha = 1. + data_rng.uniform(low=-var, high=var)
-    image *= alpha
 
-def contrast_(data_rng, image, gs, gs_mean, var):
-    alpha = 1. + data_rng.uniform(low=-var, high=var)
-    blend_(alpha, image, gs_mean)
 
-def color_aug(data_rng, image, eig_val, eig_vec):
-    functions = [brightness_, contrast_, saturation_]
-    random.shuffle(functions)
+    radiusW, radiusH = gaussian_radius_mod((math.ceil(h), math.ceil(w)))
+    radiusW = max(0, int(radiusW))
+    radiusH = max(0, int(radiusH))
 
-    gs = grayscale(image)
-    gs_mean = gs.mean()
-    for f in functions:
-        f(data_rng, image, gs, gs_mean, 0.4)
-    lighting_(data_rng, image, 0.1, eig_val, eig_vec)
+
+    ct = np.array(
+        [xc, yc], dtype=np.float32)
+    ct_int = ct.astype(np.int32)
+    # draw_gaussian(hm[cls_id], ct_int, radius)
+    draw_umich_gaussian_mod(hm, ct_int, radiusW, radiusH)
+
+hm = cv2.resize(hm, (ori_w, ori_h))
+plt.imshow(ori_img)
+plt.imshow(hm, alpha=0.4, cmap="jet")
+plt.savefig('gauss_hm.png')
+
+pass

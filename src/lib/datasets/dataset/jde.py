@@ -16,9 +16,9 @@ from torch.utils.data import Dataset
 from torchvision.transforms import transforms as T
 from cython_bbox import bbox_overlaps as bbox_ious
 from opts import opts
-from utils.image import gaussian_radius, draw_umich_gaussian, draw_msra_gaussian
+from utils.image import gaussian_radius, draw_umich_gaussian, draw_msra_gaussian, draw_umich_gaussian_mod
 from utils.utils import xyxy2xywh, generate_anchors, xywh2xyxy, encode_delta
-
+from utils.density import *
 
 class LoadImages:  # for inference
     def __init__(self, path, img_size=(1088, 608)):
@@ -360,6 +360,11 @@ class JointDataset(LoadImagesAndLabels):  # for training
         self.tid_num = OrderedDict()
         self.tid_start_index = OrderedDict()
         self.num_classes = 1
+        self.knn_phase = True
+        self.k = 6
+        self.min_head_size=40, 
+        self.max_head_size=200
+
 
         for ds, path in paths.items():
             with open(path, 'r') as file:
@@ -409,7 +414,7 @@ class JointDataset(LoadImagesAndLabels):  # for training
         print('=' * 80)
 
     def __getitem__(self, files_index):
-
+        points = []
         for i, c in enumerate(self.cds):
             if files_index >= c:
                 ds = list(self.label_files.keys())[i]
@@ -438,7 +443,8 @@ class JointDataset(LoadImagesAndLabels):  # for training
         ids = np.zeros((self.max_objs, ), dtype=np.int64)
         bbox_xys = np.zeros((self.max_objs, 4), dtype=np.float32)
 
-        draw_gaussian = draw_msra_gaussian if self.opt.mse_loss else draw_umich_gaussian
+        # draw_gaussian = draw_msra_gaussian if self.opt.mse_loss else draw_umich_gaussian
+        draw_gaussian = draw_umich_gaussian_mod
         for k in range(num_objs):
             label = labels[k]
             bbox = label[2:]
@@ -461,6 +467,8 @@ class JointDataset(LoadImagesAndLabels):  # for training
             bbox_xy[2] = bbox_xy[0] + bbox_xy[2]
             bbox_xy[3] = bbox_xy[1] + bbox_xy[3]
 
+            points.append([bbox[0], bbox[1]])
+
             if h > 0 and w > 0:
                 radius = gaussian_radius((math.ceil(h), math.ceil(w)))
                 radius = max(0, int(radius))
@@ -481,7 +489,11 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 ids[k] = label[1]
                 bbox_xys[k] = bbox_xy
 
-        ret = {'input': imgs, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh, 'reg': reg, 'ids': ids, 'bbox': bbox_xys}
+        scaled_points = np.array(points)
+        scaled_crowd_img_size = [output_h, output_w]
+        density_map = get_density_map(scaled_crowd_img_size, scaled_points, self.knn_phase, self.k, self.scaled_min_head_size, sself.caled_max_head_size)
+
+        ret = {'input': imgs, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh, 'reg': reg, 'ids': ids, 'bbox': bbox_xys, 'density': density_map, 'count': num_objs}
         return ret
 
 
