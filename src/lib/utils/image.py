@@ -13,6 +13,8 @@ import numpy as np
 import cv2
 import random
 
+PI= 3.14159265359
+
 def flip(img):
   return img[:, :, ::-1].copy()  
 
@@ -92,14 +94,14 @@ def crop(img, center, scale, output_size, rot=0):
     return dst_img
 
 
-def gaussian_radius_mod(det_size, center_area=0.1):
+def gaussian_radius_mod(det_size, center_area=0.3):
     height, width = det_size
-    ratio = max(height, width) / min(height, width)
+    ratio = height / width
 
     # r repeasent x axies offset
-    r = np.sqrt((center_area * width * height / ratio))
+    r = np.sqrt(pow(width, 2) * center_area)
 
-    return (r, ratio * r) if height > width else ( ratio * r, r)
+    return (r, ratio * r)
 
 def gaussian_radius(det_size, min_overlap=0.7):
   height, width = det_size
@@ -124,11 +126,11 @@ def gaussian_radius(det_size, min_overlap=0.7):
   return min(r1, r2, r3)
 
 
-def gaussian2D_mod(shape, sigmaW=1, sigmaH=1):
+def gaussian2D_mod(shape, sigmaW=1, sigmaH=1, normalize=False):
     m, n = [(ss - 1.) / 2. for ss in shape]
     y, x = np.ogrid[-m:m + 1, -n:n + 1]
 
-    h = np.exp(-(x * x / (2 * sigmaW * sigmaW) + y * y / (2 * sigmaH * sigmaH)))
+    h = np.exp(-(x * x / (2 * sigmaW * sigmaW) + y * y / (2 * sigmaH * sigmaH)))  / (2 * PI * sigmaH * sigmaW) if normalize else np.exp(-(x * x / (2 * sigmaW * sigmaW) + y * y / (2 * sigmaH * sigmaH)))
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
     return h
 
@@ -140,26 +142,26 @@ def gaussian2D(shape, sigma=1):
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
     return h
 
-def draw_umich_gaussian_mod(heatmap, center, rw, rh, k=1):
+def draw_umich_gaussian_mod(heatmap, center, rw, rh, k=1, normalize=False):
     diameterW = 2 * rw + 1
     diameterH = 2 * rh + 1
     # gaussian = gaussian2D((int(1.4*diameter), diameter), sigma=diameter / 6)
-    gaussian = gaussian2D_mod((diameterH, diameterW), sigmaW=diameterW / 6, sigmaH=diameterH / 6)
+    gaussian = gaussian2D_mod((diameterH, diameterW), sigmaW=diameterW / 6, sigmaH=diameterH / 6, normalize=normalize)
 
     x, y = int(center[0]), int(center[1])
 
     height, width = heatmap.shape[0:2]
 
-    left, right = x - rw, x + rw
-    top, bottom = y - rh, y + rh
+    left, right = max(0, x - rw), min(width, x + rw +1)
+    top, bottom = max(0, y - rh), min(height, y + rh +1)
 
-    masked_heatmap = heatmap[y - rh:y + rh+1, x - rw:x + rw+1]
-    masked_gaussian = gaussian
+    masked_heatmap = heatmap[top:bottom, left:right]
+    masked_gaussian = gaussian[top - (y - rh): bottom - (y - rh), left - (x - rw):right - (x - rw)]
     if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0:  # TODO debug
-        try:
-            np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
-        except:
-            print('erro')
+        # try:
+        np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
+        # except:
+        #     print('erro')
     return heatmap
 
 def draw_umich_gaussian(heatmap, center, radius, k=1):

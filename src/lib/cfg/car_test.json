@@ -1,0 +1,12 @@
+{
+    "root":"/media/data/DataSet",
+    "train":
+    {
+        "detrac":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.train"
+    },
+    "test":
+    {
+        "detrac":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.val"
+
+    }
+}

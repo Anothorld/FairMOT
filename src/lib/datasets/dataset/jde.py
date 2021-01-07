@@ -11,12 +11,12 @@ import json
 import numpy as np
 import torch
 import copy
-
+import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 from torchvision.transforms import transforms as T
 from cython_bbox import bbox_overlaps as bbox_ious
 from opts import opts
-from utils.image import gaussian_radius, draw_umich_gaussian, draw_msra_gaussian, draw_umich_gaussian_mod
+from utils.image import gaussian_radius, draw_umich_gaussian, draw_msra_gaussian, draw_umich_gaussian_mod, gaussian_radius_mod
 from utils.utils import xyxy2xywh, generate_anchors, xywh2xyxy, encode_delta
 from utils.density import *
 
@@ -191,8 +191,8 @@ class LoadImagesAndLabels:  # for training
             labels = labels0.copy()
             labels[:, 2] = ratio * w * (labels0[:, 2] - labels0[:, 4] / 2) + padw
             labels[:, 3] = ratio * h * (labels0[:, 3] - labels0[:, 5] / 2) + padh
-            labels[:, 4] = ratio * w * (labels0[:, 2] + labels0[:, 4] / 2) + padw
             labels[:, 5] = ratio * h * (labels0[:, 3] + labels0[:, 5] / 2) + padh
+            labels[:, 4] = ratio * w * (labels0[:, 2] + labels0[:, 4] / 2) + padw
         else:
             labels = np.array([])
 
@@ -356,14 +356,14 @@ class JointDataset(LoadImagesAndLabels):  # for training
         self.opt = opt
         dataset_names = paths.keys()
         self.img_files = OrderedDict()
-        self.label_files = OrderedDict()
         self.tid_num = OrderedDict()
+        self.label_files = OrderedDict()
         self.tid_start_index = OrderedDict()
         self.num_classes = 1
         self.knn_phase = True
-        self.k = 6
-        self.min_head_size=40, 
-        self.max_head_size=200
+        self.k = 8
+        self.scaled_min_head_size=100 // self.opt.down_ratio
+        self.scaled_max_head_size=800 // self.opt.down_ratio
 
 
         for ds, path in paths.items():
@@ -433,6 +433,7 @@ class JointDataset(LoadImagesAndLabels):  # for training
         num_classes = self.num_classes
         num_objs = labels.shape[0]
         hm = np.zeros((num_classes, output_h, output_w), dtype=np.float32)
+        density = np.zeros((num_classes, output_h, output_w), dtype=np.float32)
         if self.opt.ltrb:
             wh = np.zeros((self.max_objs, 4), dtype=np.float32)
         else:
@@ -470,14 +471,19 @@ class JointDataset(LoadImagesAndLabels):  # for training
             points.append([bbox[0], bbox[1]])
 
             if h > 0 and w > 0:
-                radius = gaussian_radius((math.ceil(h), math.ceil(w)))
-                radius = max(0, int(radius))
-                radius = 6 if self.opt.mse_loss else radius
+                radiusW, radiusH = (math.ceil(h / 2), math.ceil(w / 2))
+                radiusW = max(0, int(radiusW))
+                radiusH = max(0, int(radiusH))
+                # radius = gaussian_radius((math.ceil(h), math.ceil(w)))
+                # radius = max(0, int(radius))
+                # radius = 6 if self.opt.mse_loss else radius
                 #radius = max(1, int(radius)) if self.opt.mse_loss else radius
                 ct = np.array(
                     [bbox[0], bbox[1]], dtype=np.float32)
                 ct_int = ct.astype(np.int32)
-                draw_gaussian(hm[cls_id], ct_int, radius)
+                # draw_gaussian(hm[cls_id], ct_int, radius)
+                draw_gaussian(hm[cls_id], ct_int, radiusW, radiusH)
+                draw_gaussian(density[cls_id], ct_int, radiusW, radiusH, k=1, normalize=True)
                 if self.opt.ltrb:
                     wh[k] = ct[0] - bbox_amodal[0], ct[1] - bbox_amodal[1], \
                             bbox_amodal[2] - ct[0], bbox_amodal[3] - ct[1]
@@ -490,10 +496,14 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 bbox_xys[k] = bbox_xy
 
         scaled_points = np.array(points)
-        scaled_crowd_img_size = [output_h, output_w]
-        density_map = get_density_map(scaled_crowd_img_size, scaled_points, self.knn_phase, self.k, self.scaled_min_head_size, sself.caled_max_head_size)
+        # scaled_crowd_img_size = [output_h, output_w]
+        # density_map = get_density_map(scaled_crowd_img_size, scaled_points, self.knn_phase, self.k, self.scaled_min_head_size, self.scaled_max_head_size)
+        # plt.imshow(imgs.permute(1, 2, 0))
+        # plt.imshow(hm[0], alpha=0.2, cmap='rainbow')
+        # plt.savefig('out.png')
 
-        ret = {'input': imgs, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh, 'reg': reg, 'ids': ids, 'bbox': bbox_xys, 'density': density_map, 'count': num_objs}
+
+        ret = {'input': imgs, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh, 'reg': reg, 'ids': ids, 'bbox': bbox_xys, 'density': density*50, 'count': np.array(num_objs, dtype=np.float32)}
         return ret
 
 

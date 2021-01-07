@@ -20,7 +20,8 @@ from utils.utils import xywh2xyxy, ap_per_class, bbox_iou
 from opts import opts
 from models.decode import mot_decode
 from utils.post_process import ctdet_post_process
-
+import matplotlib.pyplot as plt
+import torch.nn.functional as F
 
 def post_process(opt, dets, meta):
     dets = dets.detach().cpu().numpy()
@@ -52,7 +53,7 @@ def merge_outputs(opt, detections):
 
 def test_det(
         opt,
-        batch_size=12,
+        batch_size=1,
         img_size=(1088, 608),
         iou_thres=0.5,
         print_interval=40,
@@ -75,6 +76,14 @@ def test_det(
     model = model.to(opt.device)
     model.eval()
 
+    fig1 = plt.figure(figsize=(16,9), dpi=150)
+    ax11 = fig1.add_subplot(221)
+    ax12 = fig1.add_subplot(222)
+    ax21 = fig1.add_subplot(223)
+    ax22 = fig1.add_subplot(224)
+    fig1.tight_layout()
+    
+
     # Get dataloader
     transforms = T.Compose([T.ToTensor()])
     dataset = DetDataset(dataset_root, test_path, img_size, augment=False, transforms=transforms)
@@ -90,6 +99,11 @@ def test_det(
         #seen += batch_size
 
         output = model(imgs.cuda())[-1]
+        fig1 = plt.figure(figsize=(16,9), dpi=150)
+        ax11 = fig1.add_subplot(221)
+        ax12 = fig1.add_subplot(222)
+        ax21 = fig1.add_subplot(223)
+        ax22 = fig1.add_subplot(224)
         origin_shape = shapes[0]
         width = origin_shape[1]
         height = origin_shape[0]
@@ -102,6 +116,7 @@ def test_det(
                 'out_width': inp_width // opt.down_ratio}
         hm = output['hm'].sigmoid_()
         wh = output['wh']
+        density = output['density'].sigmoid_()
         reg = output['reg'] if opt.reg_offset else None
         opt.K = 200
         detections, inds = mot_decode(hm, wh, reg=reg, ltrb=opt.ltrb, K=opt.K)
@@ -116,6 +131,10 @@ def test_det(
             dets = post_process(opt, dets, meta)
             dets = merge_outputs(opt, [dets])[1]
 
+            ax11.imshow(imgs[0].permute(1, 2, 0))
+            ax12.imshow(hm[0][0].cpu())
+            ax21.imshow(density[0][0].cpu())
+            plt.savefig('out.png', bbox_inches='tight')
             #remain_inds = dets[:, 4] > opt.det_thres
             #dets = dets[remain_inds]
             if dets is None:
@@ -212,4 +231,4 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     opt = opts().init()
     with torch.no_grad():
-        map = test_det(opt, batch_size=4)
+        map = test_det(opt, batch_size=1)

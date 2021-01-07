@@ -16,6 +16,14 @@ from models.utils import _sigmoid, _tranpose_and_gather_feat
 from utils.post_process import ctdet_post_process
 from .base_trainer import BaseTrainer
 
+import torch
+import torch.nn.functional as F
+from torch.autograd import Variable
+import numpy as np
+from math import exp
+from trains.ssim import NORMMSSSIM
+
+
 
 class MotLoss(torch.nn.Module):
     def __init__(self, opt):
@@ -26,6 +34,9 @@ class MotLoss(torch.nn.Module):
         self.crit_wh = torch.nn.L1Loss(reduction='sum') if opt.dense_wh else \
             NormRegL1Loss() if opt.norm_wh else \
                 RegWeightedL1Loss() if opt.cat_spec_wh else self.crit_reg
+        self.crit_density_focal = FocalLoss()
+        self.crit_density_ssim = NORMMSSSIM()
+        self.crit_count = torch.nn.MSELoss()
         self.opt = opt
         self.emb_dim = opt.reid_dim
         self.nID = opt.nID
@@ -37,7 +48,7 @@ class MotLoss(torch.nn.Module):
 
     def forward(self, outputs, batch):
         opt = self.opt
-        hm_loss, wh_loss, off_loss, id_loss = 0, 0, 0, 0
+        hm_loss, wh_loss, off_loss, id_loss, count_loss = 0, 0, 0, 0, 0
         for s in range(opt.num_stacks):
             output = outputs[s]
             if not opt.mse_loss:
@@ -61,14 +72,20 @@ class MotLoss(torch.nn.Module):
 
                 id_output = self.classifier(id_head).contiguous()
                 id_loss += self.IDLoss(id_output, id_target)
+            
+            if opt.count_weight > 0:
+                output['density'] = F.sigmoid(output['density'])
+                density_loss = self.crit_density_focal(output['density'], batch['density']) + self.crit_density_ssim(output['density'], batch['density'])
+                count_loss += self.crit_count(output['count'], batch['count']) + density_loss
 
-        det_loss = opt.hm_weight * hm_loss + opt.wh_weight * wh_loss + opt.off_weight * off_loss
+
+        det_loss = opt.hm_weight * hm_loss + opt.wh_weight * wh_loss + opt.off_weight * off_loss + opt.count_weight * count_loss
 
         loss = torch.exp(-self.s_det) * det_loss + torch.exp(-self.s_id) * id_loss + (self.s_det + self.s_id)
         loss *= 0.5
 
         loss_stats = {'loss': loss, 'hm_loss': hm_loss,
-                      'wh_loss': wh_loss, 'off_loss': off_loss, 'id_loss': id_loss}
+                      'wh_loss': wh_loss, 'off_loss': off_loss, 'id_loss': id_loss, "density_loss": density_loss, 'count_loss': count_loss}
         return loss, loss_stats
 
 
@@ -77,7 +94,7 @@ class MotTrainer(BaseTrainer):
         super(MotTrainer, self).__init__(opt, model, optimizer=optimizer)
 
     def _get_losses(self, opt):
-        loss_states = ['loss', 'hm_loss', 'wh_loss', 'off_loss', 'id_loss']
+        loss_states = ['loss', 'hm_loss', 'wh_loss', 'off_loss', 'id_loss', 'count_loss', 'density_loss']
         loss = MotLoss(opt)
         return loss_states, loss
 

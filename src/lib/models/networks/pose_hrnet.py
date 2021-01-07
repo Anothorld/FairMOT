@@ -508,7 +508,10 @@ class PoseHighResolutionNet(nn.Module):
 
         z = {}
         for head in self.heads:
-            z[head] = self.__getattr__(head)(x)
+            if 'count' in head:
+                z[head] = torch.sum(F.sigmoid(z['density']) / 50, (2, 3)).squeeze()
+            else:
+                z[head] = self.__getattr__(head)(x)
         return [z]
 
     def init_weights(self, pretrained=''):
@@ -537,7 +540,7 @@ def fill_fc_weights(layers):
 
 def get_pose_net(num_layers, heads, head_conv):
     if num_layers == 32:
-        cfg_dir = '../src/lib/models/networks/config/hrnet_w32.yaml'
+        cfg_dir = '/home/zlz/PycharmProjects/FairMOT_ori/FairMOT/src/lib/models/networks/config/hrnet_w32.yaml'
     elif num_layers == 18:
         cfg_dir = '../src/lib/models/networks/config/hrnet_w18.yaml'
     else:

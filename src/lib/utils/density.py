@@ -119,7 +119,7 @@ def get_density_map(scaled_crowd_img_size, scaled_points, knn_phase, k, scaled_m
         ksize = int(math.floor(ksize / 2))
         H = fspecial(ksize, sigma)
         density_map[x1:x1 + ksize, y1:y1 + ksize] = density_map[x1:x1 + ksize, y1:y1 + ksize] + H
-    return np.asarray(density_map)
+    return np.asarray(density_map, dtype=np.float32)
 
 
 def get_cropped_crowd_image(ori_crowd_img, points, crop_size):
