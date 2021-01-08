@@ -70,3 +70,4 @@ class Logger(object):
     """Log a scalar variable."""
     if USE_TENSORBOARD:
       self.writer.add_scalar(tag, value, step)
+
