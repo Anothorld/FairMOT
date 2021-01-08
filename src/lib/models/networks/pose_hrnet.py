@@ -23,6 +23,219 @@ def conv3x3(in_planes, out_planes, stride=1):
                      padding=1, bias=False)
 
 
+up_kwargs = {'mode': 'bilinear', 'align_corners': True}
+__all__ = ['CPAMEnc', 'CPAMDec','CCAMDec', 'CLGD']
+
+
+class CPAMEnc(nn.Module):
+    """
+    CPAM encoding module
+    """
+    def __init__(self, in_channels, norm_layer):
+        super(CPAMEnc, self).__init__()
+        self.pool1 = nn.AdaptiveAvgPool2d(1)
+        self.pool2 = nn.AdaptiveAvgPool2d(2)
+        self.pool3 = nn.AdaptiveAvgPool2d(3)
+        self.pool4 = nn.AdaptiveAvgPool2d(6)
+
+        self.conv1 = nn.Sequential(nn.Conv2d(in_channels, in_channels, 1, bias=False),
+                                norm_layer(in_channels),
+                                nn.ReLU(True))
+        self.conv2 = nn.Sequential(nn.Conv2d(in_channels, in_channels, 1, bias=False),
+                                norm_layer(in_channels),
+                                nn.ReLU(True))
+        self.conv3 = nn.Sequential(nn.Conv2d(in_channels, in_channels, 1, bias=False),
+                                norm_layer(in_channels),
+                                nn.ReLU(True))
+        self.conv4 = nn.Sequential(nn.Conv2d(in_channels, in_channels, 1, bias=False),
+                                norm_layer(in_channels),
+                                nn.ReLU(True))
+
+    def forward(self, x):
+        b, c, h, w = x.size()
+        
+        feat1 = self.conv1(self.pool1(x)).view(b,c,-1)
+        feat2 = self.conv2(self.pool2(x)).view(b,c,-1)
+        feat3 = self.conv3(self.pool3(x)).view(b,c,-1)
+        feat4 = self.conv4(self.pool4(x)).view(b,c,-1)
+        
+        return torch.cat((feat1, feat2, feat3, feat4), 2)
+
+
+class CPAMDec(nn.Module):
+    """
+    CPAM decoding module
+    """
+    def __init__(self,in_channels):
+        super(CPAMDec,self).__init__()
+        self.softmax  = nn.Softmax(dim=-1)
+        self.scale = nn.Parameter(torch.zeros(1))
+
+        self.conv_query = nn.Conv2d(in_channels = in_channels , out_channels = in_channels//4, kernel_size= 1) # query_conv2
+        self.conv_key = nn.Linear(in_channels, in_channels//4) # key_conv2
+        self.conv_value = nn.Linear(in_channels, in_channels) # value2
+    def forward(self, x,y):
+        """
+            inputs :
+                x : input feature(N,C,H,W) y:gathering centers(N,K,M)
+            returns :
+                out : compact position attention feature
+                attention map: (H*W)*M
+        """
+        m_batchsize,C,width ,height = x.size()
+        m_batchsize,K,M = y.size()
+
+        proj_query  = self.conv_query(x).view(m_batchsize,-1,width*height).permute(0,2,1)#BxNxd
+        proj_key =  self.conv_key(y).view(m_batchsize,K,-1).permute(0,2,1)#BxdxK
+        energy =  torch.bmm(proj_query,proj_key)#BxNxK
+        attention = self.softmax(energy) #BxNxk
+
+        proj_value = self.conv_value(y).permute(0,2,1) #BxCxK
+        out = torch.bmm(proj_value,attention.permute(0,2,1))#BxCxN
+        out = out.view(m_batchsize,C,width,height)
+        out = self.scale*out + x
+        return out
+
+
+class CCAMDec(nn.Module):
+    """
+    CCAM decoding module
+    """
+    def __init__(self):
+        super(CCAMDec,self).__init__()
+        self.softmax  = nn.Softmax(dim=-1)
+        self.scale = nn.Parameter(torch.zeros(1))
+
+    def forward(self, x,y):
+        """
+            inputs :
+                x : input feature(N,C,H,W) y:gathering centers(N,K,H,W)
+            returns :
+                out : compact channel attention feature
+                attention map: K*C
+        """
+        m_batchsize,C,width ,height = x.size()
+        x_reshape =x.view(m_batchsize,C,-1)
+
+        B,K,W,H = y.size()
+        y_reshape =y.view(B,K,-1)
+        proj_query  = x_reshape #BXC1XN
+        proj_key  = y_reshape.permute(0,2,1) #BX(N)XC
+        energy =  torch.bmm(proj_query,proj_key) #BXC1XC
+        energy_new = torch.max(energy,-1,keepdim=True)[0].expand_as(energy)-energy
+        attention = self.softmax(energy_new)
+        proj_value = y.view(B,K,-1) #BCN
+        
+        out = torch.bmm(attention,proj_value) #BC1N
+        out = out.view(m_batchsize,C,width ,height)
+
+        out = x + self.scale*out
+        return out
+
+
+class CLGD(nn.Module):
+    """
+    Cross-level Gating Decoder
+    """
+    def __init__(self, in_channels, out_channels, norm_layer):
+        super(CLGD, self).__init__()
+
+        inter_channels= 32
+        self.conv_low = nn.Sequential(nn.Conv2d(in_channels, inter_channels, 3, padding=1, bias=False),
+                                norm_layer(inter_channels),
+                                nn.ReLU()) #skipconv
+        
+        self.conv_cat = nn.Sequential(nn.Conv2d(in_channels+inter_channels, in_channels, 3, padding=1, bias=False),
+                                     norm_layer(in_channels),
+                                     nn.ReLU()) # fusion1
+
+        self.conv_att = nn.Sequential(nn.Conv2d(in_channels+inter_channels, 1, 1),
+                                    nn.Sigmoid()) # att
+
+        self.conv_out = nn.Sequential(nn.Conv2d(in_channels, out_channels, 3, padding=1, bias=False),
+                                     norm_layer(out_channels),
+                                     nn.ReLU()) # fusion2
+        self._up_kwargs = up_kwargs
+
+        self.gamma = nn.Parameter(torch.ones(1))
+
+    def forward(self, x,y):
+        """
+            inputs :
+                x : low level feature(N,C,H,W)  y:high level feature(N,C,H,W)
+            returns :
+                out :  cross-level gating decoder feature
+        """
+        low_lvl_feat = self.conv_low(x)
+        high_lvl_feat = F.upsample(y, low_lvl_feat.size()[2:], **self._up_kwargs)
+        feat_cat = torch.cat([low_lvl_feat,high_lvl_feat],1)
+      
+        low_lvl_feat_refine = self.gamma*self.conv_att(feat_cat)*low_lvl_feat 
+        low_high_feat = torch.cat([low_lvl_feat_refine,high_lvl_feat],1)
+        low_high_feat = self.conv_cat(low_high_feat)
+        
+        low_high_feat = self.conv_out(low_high_feat)
+
+        return low_high_feat
+
+
+class DranHead(nn.Module):
+    def __init__(self, in_channels, out_channels, norm_layer):
+        super(DranHead, self).__init__()
+        inter_channels = in_channels // 4
+
+        ## Convs or modules for CPAM 
+        self.conv_cpam_b = nn.Sequential(nn.Conv2d(in_channels, inter_channels, 3, padding=1, bias=False),
+                                   norm_layer(inter_channels),
+                                   nn.ReLU()) # conv5_s
+        self.cpam_enc = CPAMEnc(inter_channels, norm_layer) # en_s
+        self.cpam_dec = CPAMDec(inter_channels) # de_s
+        self.conv_cpam_e = nn.Sequential(nn.Conv2d(inter_channels, inter_channels, 3, padding=1, bias=False),
+                           norm_layer(inter_channels),
+                           nn.ReLU()) # conv52
+
+        ## Convs or modules for CCAM
+        self.conv_ccam_b = nn.Sequential(nn.Conv2d(in_channels, inter_channels, 3, padding=1, bias=False),
+                                   norm_layer(inter_channels),
+                                   nn.ReLU()) # conv5_c
+        self.ccam_enc = nn.Sequential(nn.Conv2d(inter_channels, inter_channels//16, 1, bias=False),
+                                   norm_layer(inter_channels//16),
+                                   nn.ReLU()) # conv51_c
+        self.ccam_dec = CCAMDec() # de_c
+        self.conv_ccam_e = nn.Sequential(nn.Conv2d(inter_channels, inter_channels, 3, padding=1, bias=False),
+                                   norm_layer(inter_channels),
+                                   nn.ReLU()) # conv51
+
+        ## Fusion conv
+        self.conv_cat = nn.Sequential(nn.Conv2d(inter_channels*2, inter_channels//2, 3, padding=1, bias=False),
+                                   norm_layer(inter_channels//2),
+                                   nn.ReLU()) # conv_f
+        ## Cross-level Gating Decoder(CLGD) 
+        self.clgd = CLGD(inter_channels//2,inter_channels//2,norm_layer)
+
+    def forward(self, multix):
+
+        ## Compact Channel Attention Module(CCAM)
+        ccam_b = self.conv_ccam_b(multix[-1])
+        ccam_f = self.ccam_enc(ccam_b)
+        ccam_feat = self.ccam_dec(ccam_b,ccam_f)        
+        
+        ## Compact Spatial Attention Module(CPAM)
+        cpam_b = self.conv_cpam_b(multix[-1])
+        cpam_f = self.cpam_enc(cpam_b).permute(0,2,1)#BKD
+        cpam_feat = self.cpam_dec(cpam_b,cpam_f)
+
+        ## Fuse two modules
+        ccam_feat = self.conv_ccam_e(ccam_feat)
+        cpam_feat = self.conv_cpam_e(cpam_feat)
+        feat_sum = self.conv_cat(torch.cat([cpam_feat,ccam_feat],1))
+        
+        ## Cross-level Gating Decoder(CLGD) 
+        final_feat = self.clgd(multix[0], feat_sum)
+
+        return final_feat
+
+
 class BasicBlock(nn.Module):
     expansion = 1
 
@@ -271,7 +484,7 @@ blocks_dict = {
 
 class PoseHighResolutionNet(nn.Module):
 
-    def __init__(self, cfg, heads):
+    def __init__(self, cfg, heads, attention=False):
         self.inplanes = 64
         extra = cfg.MODEL.EXTRA
         super(PoseHighResolutionNet, self).__init__()
@@ -285,6 +498,7 @@ class PoseHighResolutionNet(nn.Module):
         self.bn2 = nn.BatchNorm2d(64, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
         self.layer1 = self._make_layer(Bottleneck, 64, 4)
+        self.attention_layer = DranHead(256, 1, nn.BatchNorm2d)
 
         self.stage2_cfg = cfg['MODEL']['EXTRA']['STAGE2']
         num_channels = self.stage2_cfg['NUM_CHANNELS']
@@ -352,14 +566,22 @@ class PoseHighResolutionNet(nn.Module):
         head_conv = 256
         for head in self.heads:
             classes = self.heads[head]
+            # fc = nn.Sequential(
+            #     nn.Conv2d(last_inp_channels, head_conv,
+            #               kernel_size=3, padding=1, bias=True),
+            #     nn.ReLU(inplace=True),
+            #     nn.Conv2d(head_conv, classes,
+            #               kernel_size=extra.FINAL_CONV_KERNEL, stride=1,
+            #               padding=extra.FINAL_CONV_KERNEL // 2, bias=True))
             fc = nn.Sequential(
-                nn.Conv2d(last_inp_channels, head_conv,
-                          kernel_size=3, padding=1, bias=True),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(head_conv, classes,
-                          kernel_size=extra.FINAL_CONV_KERNEL, stride=1,
-                          padding=extra.FINAL_CONV_KERNEL // 2, bias=True))
-            if 'hm' in head:
+                    self.attention_layer,
+                    nn.Conv2d(32, head_conv,
+                            kernel_size=3, padding=1, bias=True),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(head_conv, classes,
+                            kernel_size=extra.FINAL_CONV_KERNEL, stride=1,
+                            padding=extra.FINAL_CONV_KERNEL // 2, bias=True))
+            if 'hm' in head or 'density' in head:
                 fc[-1].bias.data.fill_(-2.19)
             else:
                 fill_fc_weights(fc)
@@ -498,19 +720,19 @@ class PoseHighResolutionNet(nn.Module):
                 x_list.append(y_list[i])
         x = self.stage4(x_list)
 
-        # Upsampling
-        x0_h, x0_w = x[0].size(2), x[0].size(3)
-        x1 = F.upsample(x[1], size=(x0_h, x0_w), mode='bilinear')
-        x2 = F.upsample(x[2], size=(x0_h, x0_w), mode='bilinear')
-        x3 = F.upsample(x[3], size=(x0_h, x0_w), mode='bilinear')
+        # # Upsampling
+        # x0_h, x0_w = x[0].size(2), x[0].size(3)
+        # x1 = F.upsample(x[1], size=(x0_h, x0_w), mode='bilinear')
+        # x2 = F.upsample(x[2], size=(x0_h, x0_w), mode='bilinear')
+        # x3 = F.upsample(x[3], size=(x0_h, x0_w), mode='bilinear')
 
-        x = torch.cat([x[0], x1, x2, x3], 1)
-
+        # x_cat = torch.cat([x[0], x1, x2, x3], 1)
+        # x = self.attention_layer(x)
         z = {}
         for head in self.heads:
             if 'count' in head:
                 z[head] = torch.sum(F.sigmoid(z['density']) / 50, (2, 3)).squeeze()
-            else:
+            else: 
                 z[head] = self.__getattr__(head)(x)
         return [z]
 
@@ -550,3 +772,19 @@ def get_pose_net(num_layers, heads, head_conv):
     model.init_weights(cfg.MODEL.PRETRAINED)
 
     return model
+
+
+if __name__ == '__main__':
+    heads = {'hm': 1,
+                   'wh': 2 ,
+                   'id': 128,
+                   'density': 1,
+                   'count': 1}
+    cfg_dir = '/home/zlz/PycharmProjects/FairMOT_ori/FairMOT/src/lib/models/networks/config/hrnet_w32.yaml'
+    update_config(cfg, cfg_dir)
+    model = PoseHighResolutionNet(cfg, heads)
+    model.init_weights(cfg.MODEL.PRETRAINED)
+    a = torch.rand([1, 3, 1088, 608])
+    model.eval()
+    out = model(a)
+    pass
