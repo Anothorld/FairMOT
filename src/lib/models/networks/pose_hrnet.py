@@ -570,12 +570,8 @@ class PoseHighResolutionNet(nn.Module):
             if ('hm' in head or 'density' in head) and attention:
                 fc_a = nn.Sequential(
                     self.attention_layer,
-                    nn.Conv2d(32, head_conv,
-                            kernel_size=3, padding=1, bias=True),
-                    nn.ReLU(inplace=True),
-                    nn.Conv2d(head_conv, classes,
-                            kernel_size=extra.FINAL_CONV_KERNEL, stride=1,
-                            padding=extra.FINAL_CONV_KERNEL // 2, bias=True))
+                    nn.Conv2d(32, classes,
+                            kernel_size=3, padding=1, bias=True))
                 fc_a[-1].bias.data.fill_(-2.19)
                 self.__setattr__(head, fc_a)
             elif 'hm' in head or 'density' in head and not attention:
