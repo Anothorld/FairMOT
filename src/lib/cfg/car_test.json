@@ -2,7 +2,7 @@
     "root":"/media/data/DataSet",
     "train":
     {
-        "CityCam":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.train"
+        "detrac":"/home/zlz/PycharmProjects/FairMOT/src/data/detrac.train"
     },
     "test":
     {

@@ -58,6 +58,7 @@ class opts(object):
                                   '256 for resnets and 256 for dla.')
     self.parser.add_argument('--down_ratio', type=int, default=4,
                              help='output stride. Currently only supports 4.')
+    self.parser.add_argument('--dran', action='store_true', default=False)
 
     # input
     self.parser.add_argument('--input_res', type=int, default=-1, 

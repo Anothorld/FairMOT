@@ -70,7 +70,7 @@ def test_det(
     else:
         opt.device = torch.device('cpu')
     print('Creating model...')
-    model = create_model(opt.arch, opt.heads, opt.head_conv)
+    model = create_model(opt.arch, opt.heads, opt.head_conv, opt.dran)
     model = load_model(model, opt.load_model)
     #model = torch.nn.DataParallel(model)
     model = model.to(opt.device)
@@ -99,11 +99,11 @@ def test_det(
         #seen += batch_size
 
         output = model(imgs.cuda())[-1]
-        fig1 = plt.figure(figsize=(16,9), dpi=150)
-        ax11 = fig1.add_subplot(221)
-        ax12 = fig1.add_subplot(222)
-        ax21 = fig1.add_subplot(223)
-        ax22 = fig1.add_subplot(224)
+        # fig1 = plt.figure(figsize=(16,9), dpi=150)
+        # ax11 = fig1.add_subplot(221)
+        # ax12 = fig1.add_subplot(222)
+        # ax21 = fig1.add_subplot(223)
+        # ax22 = fig1.add_subplot(224)
         origin_shape = shapes[0]
         width = origin_shape[1]
         height = origin_shape[0]
@@ -124,19 +124,19 @@ def test_det(
         targets = [targets[i][:int(l)] for i, l in enumerate(targets_len)]
         for si, labels in enumerate(targets):
             seen += 1
-            #path = paths[si]
-            #img0 = cv2.imread(path)
+            # path = paths[si]
+            # img0 = cv2.imread(path)
             dets = detections[si]
             dets = dets.unsqueeze(0)
             dets = post_process(opt, dets, meta)
             dets = merge_outputs(opt, [dets])[1]
 
-            ax11.imshow(imgs[0].permute(1, 2, 0))
-            ax12.imshow(hm[0][0].cpu())
-            ax21.imshow(density[0][0].cpu())
-            plt.savefig('out.png', bbox_inches='tight')
-            #remain_inds = dets[:, 4] > opt.det_thres
-            #dets = dets[remain_inds]
+            # ax11.imshow(imgs[0].permute(1, 2, 0))
+            # ax12.imshow(hm[0][0].cpu())
+            # ax21.imshow(density[0][0].cpu())
+            # plt.savefig('out.png', bbox_inches='tight')
+            remain_inds = dets[:, 4] > opt.det_thres
+            dets = dets[remain_inds]
             if dets is None:
                 # If there are labels but no detections mark as zero AP
                 if labels.size(0) != 0:
@@ -159,26 +159,22 @@ def test_det(
                 target_boxes[:, 1] *= height
                 target_boxes[:, 3] *= height
 
-                '''
-                path = paths[si]
-                img0 = cv2.imread(path)
-                img1 = cv2.imread(path)
-                for t in range(len(target_boxes)):
-                    x1 = target_boxes[t, 0]
-                    y1 = target_boxes[t, 1]
-                    x2 = target_boxes[t, 2]
-                    y2 = target_boxes[t, 3]
-                    cv2.rectangle(img0, (x1, y1), (x2, y2), (0, 255, 0), 4)
-                cv2.imwrite('gt.jpg', img0)
-                for t in range(len(dets)):
-                    x1 = dets[t, 0]
-                    y1 = dets[t, 1]
-                    x2 = dets[t, 2]
-                    y2 = dets[t, 3]
-                    cv2.rectangle(img1, (x1, y1), (x2, y2), (0, 255, 0), 4)
-                cv2.imwrite('pred.jpg', img1)
-                abc = ace
-                '''
+                
+                # path = paths[si]
+                # img0 = cv2.imread(path)
+                # for t in range(len(target_boxes)):
+                #     x1 = target_boxes[t, 0]
+                #     y1 = target_boxes[t, 1]
+                #     x2 = target_boxes[t, 2]
+                #     y2 = target_boxes[t, 3]
+                #     cv2.rectangle(img0, (x1, y1), (x2, y2), (0, 255, 0), 4)
+                # for t in range(len(dets)):
+                #     x1 = dets[t, 0]
+                #     y1 = dets[t, 1]
+                #     x2 = dets[t, 2]
+                #     y2 = dets[t, 3]
+                #     cv2.rectangle(img0, (x1, y1), (x2, y2), (0, 0, 255), 4)
+                # cv2.imwrite('pred.jpg', img0)
 
                 detected = []
                 for *pred_bbox, conf in dets:

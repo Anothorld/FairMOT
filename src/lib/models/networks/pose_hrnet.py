@@ -488,7 +488,7 @@ class PoseHighResolutionNet(nn.Module):
         self.inplanes = 64
         extra = cfg.MODEL.EXTRA
         super(PoseHighResolutionNet, self).__init__()
-
+        self.attention_flag = attention
         # stem net
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1,
                                bias=False)
@@ -498,7 +498,8 @@ class PoseHighResolutionNet(nn.Module):
         self.bn2 = nn.BatchNorm2d(64, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
         self.layer1 = self._make_layer(Bottleneck, 64, 4)
-        self.attention_layer = DranHead(256, 1, nn.BatchNorm2d)
+        if attention:
+            self.attention_layer = DranHead(256, 1, nn.BatchNorm2d)
 
         self.stage2_cfg = cfg['MODEL']['EXTRA']['STAGE2']
         num_channels = self.stage2_cfg['NUM_CHANNELS']
@@ -566,14 +567,8 @@ class PoseHighResolutionNet(nn.Module):
         head_conv = 256
         for head in self.heads:
             classes = self.heads[head]
-            # fc = nn.Sequential(
-            #     nn.Conv2d(last_inp_channels, head_conv,
-            #               kernel_size=3, padding=1, bias=True),
-            #     nn.ReLU(inplace=True),
-            #     nn.Conv2d(head_conv, classes,
-            #               kernel_size=extra.FINAL_CONV_KERNEL, stride=1,
-            #               padding=extra.FINAL_CONV_KERNEL // 2, bias=True))
-            fc = nn.Sequential(
+            if ('hm' in head or 'density' in head) and attention:
+                fc_a = nn.Sequential(
                     self.attention_layer,
                     nn.Conv2d(32, head_conv,
                             kernel_size=3, padding=1, bias=True),
@@ -581,11 +576,29 @@ class PoseHighResolutionNet(nn.Module):
                     nn.Conv2d(head_conv, classes,
                             kernel_size=extra.FINAL_CONV_KERNEL, stride=1,
                             padding=extra.FINAL_CONV_KERNEL // 2, bias=True))
-            if 'hm' in head or 'density' in head:
+                fc_a[-1].bias.data.fill_(-2.19)
+                self.__setattr__(head, fc_a)
+            elif 'hm' in head or 'density' in head and not attention:
+                fc = nn.Sequential(
+                    nn.Conv2d(last_inp_channels, head_conv,
+                            kernel_size=3, padding=1, bias=True),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(head_conv, classes,
+                            kernel_size=extra.FINAL_CONV_KERNEL, stride=1,
+                            padding=extra.FINAL_CONV_KERNEL // 2, bias=True))
                 fc[-1].bias.data.fill_(-2.19)
+                self.__setattr__(head, fc)
             else:
+                fc = nn.Sequential(
+                    nn.Conv2d(last_inp_channels, head_conv,
+                            kernel_size=3, padding=1, bias=True),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(head_conv, classes,
+                            kernel_size=extra.FINAL_CONV_KERNEL, stride=1,
+                            padding=extra.FINAL_CONV_KERNEL // 2, bias=True))
+                self.__setattr__(head, fc)
                 fill_fc_weights(fc)
-            self.__setattr__(head, fc)
+            
 
         self.pretrained_layers = cfg['MODEL']['EXTRA']['PRETRAINED_LAYERS']
 
@@ -719,21 +732,24 @@ class PoseHighResolutionNet(nn.Module):
             else:
                 x_list.append(y_list[i])
         x = self.stage4(x_list)
+        
+        # if not self.attention_flag:
+            # Upsampling
+        x0_h, x0_w = x[0].size(2), x[0].size(3)
+        x1 = F.upsample(x[1], size=(x0_h, x0_w), mode='bilinear')
+        x2 = F.upsample(x[2], size=(x0_h, x0_w), mode='bilinear')
+        x3 = F.upsample(x[3], size=(x0_h, x0_w), mode='bilinear')
 
-        # # Upsampling
-        # x0_h, x0_w = x[0].size(2), x[0].size(3)
-        # x1 = F.upsample(x[1], size=(x0_h, x0_w), mode='bilinear')
-        # x2 = F.upsample(x[2], size=(x0_h, x0_w), mode='bilinear')
-        # x3 = F.upsample(x[3], size=(x0_h, x0_w), mode='bilinear')
+        x_cat = torch.cat([x[0], x1, x2, x3], 1)
 
-        # x_cat = torch.cat([x[0], x1, x2, x3], 1)
-        # x = self.attention_layer(x)
         z = {}
         for head in self.heads:
             if 'count' in head:
                 z[head] = torch.sum(F.sigmoid(z['density']) / 50, (2, 3)).squeeze()
-            else: 
+            elif 'density' in head or 'hm' in head:
                 z[head] = self.__getattr__(head)(x)
+            else: 
+                z[head] = self.__getattr__(head)(x_cat)
         return [z]
 
     def init_weights(self, pretrained=''):
@@ -760,7 +776,7 @@ def fill_fc_weights(layers):
                 nn.init.constant_(m.bias, 0)
 
 
-def get_pose_net(num_layers, heads, head_conv):
+def get_pose_net(num_layers, heads, head_conv, dran):
     if num_layers == 32:
         cfg_dir = '/home/zlz/PycharmProjects/FairMOT_ori/FairMOT/src/lib/models/networks/config/hrnet_w32.yaml'
     elif num_layers == 18:
@@ -768,7 +784,7 @@ def get_pose_net(num_layers, heads, head_conv):
     else:
         cfg_dir = '../src/lib/models/networks/config/hrnet_w18.yaml'
     update_config(cfg, cfg_dir)
-    model = PoseHighResolutionNet(cfg, heads)
+    model = PoseHighResolutionNet(cfg, heads, dran)
     model.init_weights(cfg.MODEL.PRETRAINED)
 
     return model
