@@ -746,7 +746,7 @@ class PoseHighResolutionNet(nn.Module):
         for head in self.heads:
             if 'count' in head:
                 z[head] = torch.sum(F.sigmoid(z['density']) / 50, (2, 3)).squeeze()
-            elif 'density' in head or 'hm' in head:
+            elif ('density' in head or 'hm' in head) and self.attention_flag:
                 z[head] = self.__getattr__(head)(x)
             else: 
                 z[head] = self.__getattr__(head)(x_cat)
